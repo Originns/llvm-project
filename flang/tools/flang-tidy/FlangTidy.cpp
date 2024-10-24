@@ -1,6 +1,7 @@
 #include "flang/Common/Fortran-features.h"
 #include "flang/Common/default-kinds.h"
 #include "flang/Parser/dump-parse-tree.h"
+#include "flang/Parser/message.h"
 #include "flang/Parser/parsing.h"
 #include "flang/Semantics/semantics.h"
 #include "flang/Semantics/symbol.h"
@@ -114,16 +115,33 @@ struct ParseTreeVisitor {
   }
 };
 
+void CheckForImplicitDeclarations(Fortran::semantics::SemanticsContext &ctx, const Fortran::semantics::Scope &scope) {
+  for (const auto &pair : scope) {
+    const Fortran::semantics::Symbol &symbol = *pair.second;
+    // is the symbol implicit
+    if (symbol.test(Fortran::semantics::Symbol::Flag::Implicit)) {
+      // warn about it
+      llvm::errs() << "Warning: Implicit declaration of symbol '"
+                   << symbol.name().ToString() << "'\n";
+    }
+  }
+
+  // check its children
+  for (const Fortran::semantics::Scope &child : scope.children()) {
+    CheckForImplicitDeclarations(ctx, child);
+  }
+}
+
 int main(int argc, char *argv[]) {
   Fortran::parser::AllSources allSources;
   Fortran::parser::AllCookedSources allCookedSources{allSources};
   Fortran::parser::Parsing parsing{allCookedSources};
   Fortran::parser::Options options;
-  options.features
-      .WarnOnAllNonstandard();
+  options.features.WarnOnAllNonstandard();
 
   // parse files
   for (int i = 1; i < argc; ++i) {
+    // prescan & parse
     parsing.Prescan(argv[i], options);
     parsing.Parse(llvm::outs());
 
@@ -133,21 +151,16 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
+    // get parsetree
     Fortran::parser::Program &program{*parsing.parseTree()};
 
-    // create the parse tree visitor walk the tree
-    ParseTreeVisitor visitor;
-    Fortran::parser::Walk(program, visitor);
-
-    // create semantics context and semantics objects
+    // create semantics context
     Fortran::common::IntrinsicTypeDefaultKinds defaultKinds;
     Fortran::common::LanguageFeatureControl languageFeatures;
+    Fortran::common::LangOptions langOptions;
     Fortran::semantics::SemanticsContext semanticsContext{
-        defaultKinds, languageFeatures, allCookedSources};
+        defaultKinds, languageFeatures, langOptions, allCookedSources};
     Fortran::semantics::Semantics semantics{semanticsContext, program};
-
-    // dump the parse tree
-    Fortran::parser::DumpTree(llvm::outs(), program);
 
     // perform semantic analysis
     if (!semantics.Perform()) {
@@ -155,7 +168,11 @@ int main(int argc, char *argv[]) {
       semantics.EmitMessages(llvm::errs());
     } else {
       llvm::outs() << "Semantic analysis succeeded\n";
-      Fortran::parser::DumpTree(llvm::outs(), program);
+      // create the parse tree visitor walk the tree
+      // ParseTreeVisitor visitor;
+      // Fortran::parser::Walk(program, visitor);
+      // Fortran::parser::DumpTree(llvm::outs(), program);
+      CheckForImplicitDeclarations(semanticsContext, semanticsContext.globalScope());
     }
   }
 
