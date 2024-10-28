@@ -6,6 +6,13 @@ set(LLVM_LINK_COMPONENTS
 
 add_flang_tool(flang-tidy
   FlangTidy.cpp
+  bugprone/ArithmeticGotoCheck.cpp
+  bugprone/ImplicitDeclCheck.cpp
+  bugprone/UnusedIntentCheck.cpp
+  modernize/AvoidCommonBlocks.cpp
+  tool/FlangTidyMain.cpp
+  tool/FlangTidyToolMain.cpp
+  utils/UnwrapSymbol.cpp
 )
 
 llvm_update_compile_flags(flang-tidy)

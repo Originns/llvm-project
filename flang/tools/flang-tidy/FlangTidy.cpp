@@ -1,3 +1,7 @@
+#include "FlangTidy.h"
+#include "bugprone/ArithmeticGotoCheck.h"
+#include "bugprone/ImplicitDeclCheck.h"
+#include "bugprone/UnusedIntentCheck.h"
 #include "flang/Common/Fortran-features.h"
 #include "flang/Common/default-kinds.h"
 #include "flang/Parser/dump-parse-tree.h"
@@ -5,176 +9,69 @@
 #include "flang/Parser/parsing.h"
 #include "flang/Semantics/semantics.h"
 #include "flang/Semantics/symbol.h"
+#include "modernize/AvoidCommonBlocks.h"
+#include "utils/SemanticsVisitor.h"
 #include "llvm/Support/raw_ostream.h"
-#include <unordered_set>
-#include <vector>
 
-struct ParseTreeVisitor {
-  template <typename A>
-  bool Pre(const A &) {
-    return true;
-  }
-  template <typename A>
-  void Post(const A &) {}
+namespace Fortran::tidy {
 
-  std::vector<std::unordered_set<std::string>> scopeStack;
+int runFlangTidy(const FlangTidyOptions &options) {
+  parser::AllSources allSources;
+  parser::AllCookedSources allCookedSources{allSources};
+  parser::Parsing parsing{allCookedSources};
+  parser::Options parserOptions;
 
-  void PushScope() { scopeStack.emplace_back(); }
-
-  void PopScope() {
-    if (!scopeStack.empty()) {
-      scopeStack.pop_back();
-    }
+  if (options.enableAllWarnings) {
+    parserOptions.features.WarnOnAllNonstandard();
   }
 
-  void AddVariableToCurrentScope(const std::string &varName) {
-    if (!scopeStack.empty()) {
-      scopeStack.back().insert(varName);
-    }
-  }
-
-  bool IsVariableDeclared(const std::string &varName) const {
-    // iterate through the scopes from the most recent to the oldest
-    for (auto it = scopeStack.rbegin(); it != scopeStack.rend(); ++it) {
-      if (it->find(varName) != it->end()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  bool Pre(const Fortran::parser::ImplicitStmt &implicit) {
-    // check if we hold variant std::list<ImplicitNoneNameSpec>
-    if (std::holds_alternative<
-            std::list<Fortran::parser::ImplicitStmt::ImplicitNoneNameSpec>>(
-            implicit.u)) {
-      llvm::outs() << "Found implicit none in current scope\n";
-    }
-    return true;
-  }
-
-  bool Pre(const Fortran::parser::SubroutineSubprogram &) {
-    llvm::outs() << "Entering Subroutine\n";
-    PushScope();
-    return true;
-  }
-
-  bool Pre(const Fortran::parser::FunctionSubprogram &) {
-    llvm::outs() << "Entering Function\n";
-    PushScope();
-    return true;
-  }
-
-  bool Pre(const Fortran::parser::MainProgram &) {
-    llvm::outs() << "Entering Program\n";
-    PushScope();
-    return true;
-  }
-
-  void Post(const Fortran::parser::SubroutineSubprogram &) {
-    llvm::outs() << "Leaving Subroutine\n";
-    PopScope();
-  }
-
-  void Post(const Fortran::parser::FunctionSubprogram &) {
-    llvm::outs() << "Leaving Function\n";
-    PopScope();
-  }
-
-  void Post(const Fortran::parser::MainProgram &) {
-    llvm::outs() << "Leaving Program\n";
-    PopScope();
-  }
-
-  bool Pre(const Fortran::parser::TypeDeclarationStmt &stmt) {
-    const auto &entityList = std::get<2>(stmt.t);
-    for (const auto &entity : entityList) {
-      const auto &objectName = std::get<0>(entity.t);
-      llvm::outs() << "Declaring variable: " << objectName.source.ToString()
-                   << "\n";
-      AddVariableToCurrentScope(objectName.ToString());
-    }
-    return true;
-  }
-
-  void Post(const Fortran::parser::AssignmentStmt &stmt) {
-    const auto &variable = std::get<0>(stmt.t);
-
-    // get the variable name from the designator inside the variable
-    if (const auto *designator = std::get_if<
-            Fortran::common::Indirection<Fortran::parser::Designator>>(
-            &variable.u)) {
-      const std::string varName = designator->value().source.ToString();
-
-      // check if the variable is declared in the current or any enclosing scope
-      if (!IsVariableDeclared(varName)) {
-        llvm::errs() << "Warning: Variable '" << varName
-                     << "' is used without an explicit declaration.\n";
-      }
-    }
-  }
-};
-
-void CheckForImplicitDeclarations(Fortran::semantics::SemanticsContext &ctx, const Fortran::semantics::Scope &scope) {
-  for (const auto &pair : scope) {
-    const Fortran::semantics::Symbol &symbol = *pair.second;
-    // is the symbol implicit
-    if (symbol.test(Fortran::semantics::Symbol::Flag::Implicit)) {
-      // warn about it
-      llvm::errs() << "Warning: Implicit declaration of symbol '"
-                   << symbol.name().ToString() << "'\n";
-    }
-  }
-
-  // check its children
-  for (const Fortran::semantics::Scope &child : scope.children()) {
-    CheckForImplicitDeclarations(ctx, child);
-  }
-}
-
-int main(int argc, char *argv[]) {
-  Fortran::parser::AllSources allSources;
-  Fortran::parser::AllCookedSources allCookedSources{allSources};
-  Fortran::parser::Parsing parsing{allCookedSources};
-  Fortran::parser::Options options;
-  options.features.WarnOnAllNonstandard();
-
-  // parse files
-  for (int i = 1; i < argc; ++i) {
-    // prescan & parse
-    parsing.Prescan(argv[i], options);
+  // process files
+  for (const auto &fileName : options.fileNames) {
+    // parse file
+    parsing.Prescan(fileName, parserOptions);
     parsing.Parse(llvm::outs());
 
-    // if we encountered an error while parsing, warn about it
     if (parsing.messages().AnyFatalError()) {
       parsing.messages().Emit(llvm::errs(), allCookedSources);
       continue;
     }
 
-    // get parsetree
-    Fortran::parser::Program &program{*parsing.parseTree()};
+    // get parse tree
+    parser::Program &program{*parsing.parseTree()};
+    common::IntrinsicTypeDefaultKinds defaultKinds;
+    common::LanguageFeatureControl languageFeatures;
+    common::LangOptions langOptions;
+    semantics::SemanticsContext semanticsContext{defaultKinds, languageFeatures,
+                                                 langOptions, allCookedSources};
+    semantics::Semantics semantics{semanticsContext, program};
 
-    // create semantics context
-    Fortran::common::IntrinsicTypeDefaultKinds defaultKinds;
-    Fortran::common::LanguageFeatureControl languageFeatures;
-    Fortran::common::LangOptions langOptions;
-    Fortran::semantics::SemanticsContext semanticsContext{
-        defaultKinds, languageFeatures, langOptions, allCookedSources};
-    Fortran::semantics::Semantics semantics{semanticsContext, program};
-
-    // perform semantic analysis
+    // semantic analysis
     if (!semantics.Perform()) {
       llvm::errs() << "Semantic analysis failed\n";
-      semantics.EmitMessages(llvm::errs());
-    } else {
-      llvm::outs() << "Semantic analysis succeeded\n";
-      // create the parse tree visitor walk the tree
-      // ParseTreeVisitor visitor;
-      // Fortran::parser::Walk(program, visitor);
-      // Fortran::parser::DumpTree(llvm::outs(), program);
-      CheckForImplicitDeclarations(semanticsContext, semanticsContext.globalScope());
     }
+
+    // -dump-parse-tree
+    if (options.dumpParseTree) {
+      parser::DumpTree(llvm::outs(), program);
+    }
+
+    // run checks
+    if (std::find(options.enabledChecks.begin(), options.enabledChecks.end(),
+                  "implicit-declaration") != options.enabledChecks.end() ||
+        options.enableAllWarnings) {
+      CheckImplicitDecl(semanticsContext);
+    }
+
+    // TODO: make a global context to enable/disable visitor-based checks
+    utils::SemanticsVisitor<UnusedIntentCheck, AvoidCommonBlocksCheck,
+                            ArithmeticGotoCheck>
+        visitor{semanticsContext};
+    visitor.Walk(program);
+
+    semantics.EmitMessages(llvm::errs());
   }
 
   return 0;
 }
+
+} // namespace Fortran::tidy
