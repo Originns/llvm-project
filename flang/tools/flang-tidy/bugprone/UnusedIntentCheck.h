@@ -6,34 +6,10 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 
-#include "utils/UnwrapSymbol.h"
+namespace Fortran::tidy::bugprone {
 
-namespace Fortran::tidy {
+void CheckUnusedIntent(semantics::SemanticsContext &);
 
-struct SymbolRefHash {
-  std::size_t operator()(const Fortran::semantics::SymbolRef &symbolRef) const {
-    // hash the address of the symbol
-    return std::hash<const Fortran::semantics::Symbol *>{}(&symbolRef.get());
-  }
-};
-
-class UnusedIntentCheck : public virtual semantics::BaseChecker {
-public:
-  explicit UnusedIntentCheck(semantics::SemanticsContext &);
-  ~UnusedIntentCheck();
-  void Enter(const parser::EntityDecl &);
-  void Enter(const parser::AssignmentStmt &);
-  void Enter(const parser::Expr &);
-  void Leave(const parser::Program &);
-
-private:
-  semantics::SemanticsContext &context_;
-  // an unordered map containing symbol to "usage" mappings (to indicate if its
-  // used for reading and/or writing) with the compare fuc
-  std::unordered_map<semantics::SymbolRef, std::pair<bool, bool>, SymbolRefHash>
-      intentVars_;
-};
-
-} // namespace Fortran::tidy
+} // namespace Fortran::tidy::bugprone
 
 #endif // FORTRAN_TIDY_UNUSEDINTENTCHECK

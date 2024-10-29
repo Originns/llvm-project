@@ -1,6 +1,6 @@
 #include "ArithmeticGotoCheck.h"
 
-namespace Fortran::tidy {
+namespace Fortran::tidy::bugprone {
 
 ArithmeticGotoCheck::~ArithmeticGotoCheck() {}
 
@@ -12,4 +12,4 @@ void ArithmeticGotoCheck::Enter(const parser::ComputedGotoStmt &gotoStmt) {
   }
 }
 
-} // namespace Fortran::tidy
+} // namespace Fortran::tidy::bugprone

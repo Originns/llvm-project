@@ -1,6 +1,6 @@
 #include "AvoidCommonBlocks.h"
 
-namespace Fortran::tidy {
+namespace Fortran::tidy::modernize {
 
 AvoidCommonBlocksCheck::AvoidCommonBlocksCheck(
     semantics::SemanticsContext &context)
@@ -16,4 +16,4 @@ void AvoidCommonBlocksCheck::Enter(const parser::CommonStmt &common) {
   }
 }
 
-} // namespace Fortran::tidy
+} // namespace Fortran::tidy::modernize

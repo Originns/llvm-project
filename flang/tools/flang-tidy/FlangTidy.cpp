@@ -15,6 +15,16 @@
 
 namespace Fortran::tidy {
 
+/* Checks to implement
+ * 1. Warn about implicit declarations(implicit none) (done)
+ * 2. Warn about intent(inout) variables that are never assigned a value (done)
+ * 3. Warn about using the same variable with different capitalization (?)
+ * 4. Warn about using common blocks (done)
+ * 5. Warn about arithmetic goto statements (done)
+ * 6. Warn about non allocated allocatable local variables (in the same scope)
+ * 7. Warn about uninitialized variables that are used
+ */
+
 int runFlangTidy(const FlangTidyOptions &options) {
   parser::AllSources allSources;
   parser::AllCookedSources allCookedSources{allSources};
@@ -27,7 +37,6 @@ int runFlangTidy(const FlangTidyOptions &options) {
 
   // process files
   for (const auto &fileName : options.fileNames) {
-    // parse file
     parsing.Prescan(fileName, parserOptions);
     parsing.Parse(llvm::outs());
 
@@ -59,12 +68,19 @@ int runFlangTidy(const FlangTidyOptions &options) {
     if (std::find(options.enabledChecks.begin(), options.enabledChecks.end(),
                   "implicit-declaration") != options.enabledChecks.end() ||
         options.enableAllWarnings) {
-      CheckImplicitDecl(semanticsContext);
+      bugprone::CheckImplicitDecl(semanticsContext);
+    }
+
+    // unused intent
+    if (std::find(options.enabledChecks.begin(), options.enabledChecks.end(),
+                  "unused-intent") != options.enabledChecks.end() ||
+        options.enableAllWarnings) {
+      bugprone::CheckUnusedIntent(semanticsContext);
     }
 
     // TODO: make a global context to enable/disable visitor-based checks
-    utils::SemanticsVisitor<UnusedIntentCheck, AvoidCommonBlocksCheck,
-                            ArithmeticGotoCheck>
+    utils::SemanticsVisitor<modernize::AvoidCommonBlocksCheck,
+                            bugprone::ArithmeticGotoCheck>
         visitor{semanticsContext};
     visitor.Walk(program);
 

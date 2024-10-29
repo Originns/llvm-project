@@ -6,10 +6,10 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 
-namespace Fortran::tidy {
+namespace Fortran::tidy::bugprone {
 
 void CheckImplicitDecl(semantics::SemanticsContext &);
 
-} // namespace Fortran::tidy
+} // namespace Fortran::tidy::bugprone
 
 #endif // FORTRAN_TIDY_IMPLICITDECLCHECK

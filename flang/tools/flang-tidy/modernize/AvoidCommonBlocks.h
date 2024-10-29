@@ -8,7 +8,7 @@
 
 #include "utils/UnwrapSymbol.h"
 
-namespace Fortran::tidy {
+namespace Fortran::tidy::modernize {
 
 class AvoidCommonBlocksCheck : public virtual semantics::BaseChecker {
 public:
@@ -20,6 +20,6 @@ private:
   semantics::SemanticsContext &context_;
 };
 
-} // namespace Fortran::tidy
+} // namespace Fortran::tidy::modernize
 
 #endif // FORTRAN_TIDY_COMMONBLOCK
