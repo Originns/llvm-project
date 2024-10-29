@@ -6,7 +6,7 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 
-namespace Fortran::tidy {
+namespace Fortran::tidy::bugprone {
 
 class ArithmeticGotoCheck : public virtual semantics::BaseChecker {
 public:
@@ -19,6 +19,6 @@ private:
   semantics::SemanticsContext &context_;
 };
 
-} // namespace Fortran::tidy
+} // namespace Fortran::tidy::bugprone
 
 #endif // FORTRAN_TIDY_ARITHMETICGOTOCHECK
