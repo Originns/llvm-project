@@ -3,8 +3,8 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
-                             const semantics::Scope &scope) {
+static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
+                                    const semantics::Scope &scope) {
   auto WasDefined{[&context](const semantics::Symbol &symbol) {
     return context.IsSymbolDefined(symbol) ||
            semantics::IsInitialized(symbol, /*ignoreDataStatements=*/false,
@@ -16,7 +16,7 @@ void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
     if (!WasDefined(symbol) && semantics::IsIntentInOut(symbol)) {
       context.Say(
           symbol.name(),
-          "Variable '%s' with intent(inout) is never assigned, consider changing to intent(in)"_warn_en_US,
+          "Variable '%s' with intent(inout) is never defined, consider changing to intent(in)"_warn_en_US,
           symbol.name());
     }
   }

@@ -1,10 +1,8 @@
 #ifndef FORTRAN_TIDY_ARITHMETICGOTOCHECK
 #define FORTRAN_TIDY_ARITHMETICGOTOCHECK
 
-#include "flang/Evaluate/expression.h"
+#include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/semantics.h"
-#include "flang/Semantics/symbol.h"
-#include "flang/Semantics/tools.h"
 
 namespace Fortran::tidy::bugprone {
 

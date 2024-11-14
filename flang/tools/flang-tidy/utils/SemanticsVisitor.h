@@ -1,10 +1,8 @@
 #ifndef FORTRAN_TIDY_SEMANTICS_VISITOR
 #define FORTRAN_TIDY_SEMANTICS_VISITOR
 
-#include "flang/Evaluate/expression.h"
+#include "flang/Parser/parse-tree-visitor.h"
 #include "flang/Semantics/semantics.h"
-#include "flang/Semantics/symbol.h"
-#include "flang/Semantics/tools.h"
 
 namespace Fortran::tidy::utils {
 
