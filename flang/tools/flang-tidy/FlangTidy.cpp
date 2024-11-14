@@ -1,6 +1,9 @@
 #include "FlangTidy.h"
 #include "bugprone/ArithmeticGotoCheck.h"
 #include "bugprone/ImplicitDeclCheck.h"
+#include "bugprone/PrecisionLossCheck.h"
+#include "bugprone/UndeclaredProcCheck.h"
+#include "bugprone/UninitializedVarCheck.h"
 #include "bugprone/UnusedIntentCheck.h"
 #include "flang/Common/Fortran-features.h"
 #include "flang/Common/default-kinds.h"
@@ -22,7 +25,14 @@ namespace Fortran::tidy {
  * 4. Warn about using common blocks (done)
  * 5. Warn about arithmetic goto statements (done)
  * 6. Warn about non allocated allocatable local variables (in the same scope)
- * 7. Warn about uninitialized variables that are used
+ * 7. Warn about uninitialized variables that are used (same scope) (done?)
+ * 8. Warn about short circuit statements if (allocated(a) and a(1) == 0)
+ * 9. Warn about precision loss in assignments (done)
+ * 10. Warn about implicit function declarations (done)
+ * 11. Warn about MPI asynchronus function calls with temporary buffers
+ * (stack-array)
+ * 12. Dont use include, instead use "use" (preprocessor flags, (for now
+ * "mpif.h" to "use mpi(_f08)"))
  */
 
 int runFlangTidy(const FlangTidyOptions &options) {
@@ -33,6 +43,7 @@ int runFlangTidy(const FlangTidyOptions &options) {
 
   if (options.enableAllWarnings) {
     parserOptions.features.WarnOnAllNonstandard();
+    parserOptions.expandIncludeLinesInPreprocessedOutput = false;
   }
 
   // process files
@@ -71,6 +82,13 @@ int runFlangTidy(const FlangTidyOptions &options) {
       bugprone::CheckImplicitDecl(semanticsContext);
     }
 
+    // implicit proc decl
+    if (std::find(options.enabledChecks.begin(), options.enabledChecks.end(),
+                  "undeclared-proc") != options.enabledChecks.end() ||
+        options.enableAllWarnings) {
+      bugprone::CheckUndeclaredProc(semanticsContext);
+    }
+
     // unused intent
     if (std::find(options.enabledChecks.begin(), options.enabledChecks.end(),
                   "unused-intent") != options.enabledChecks.end() ||
@@ -79,8 +97,9 @@ int runFlangTidy(const FlangTidyOptions &options) {
     }
 
     // TODO: make a global context to enable/disable visitor-based checks
-    utils::SemanticsVisitor<modernize::AvoidCommonBlocksCheck,
-                            bugprone::ArithmeticGotoCheck>
+    utils::SemanticsVisitor<
+        bugprone::ArithmeticGotoCheck, bugprone::PrecisionLossCheck,
+        bugprone::UninitializedVarCheck, modernize::AvoidCommonBlocksCheck>
         visitor{semanticsContext};
     visitor.Walk(program);
 

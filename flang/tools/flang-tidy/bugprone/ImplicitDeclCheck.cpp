@@ -3,8 +3,8 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-void CheckForImplicitDeclarations(semantics::SemanticsContext &context,
-                                  const semantics::Scope &scope) {
+static void CheckForImplicitDeclarations(semantics::SemanticsContext &context,
+                                         const semantics::Scope &scope) {
   for (const auto &pair : scope) {
     const semantics::Symbol &symbol = *pair.second;
     if (symbol.test(semantics::Symbol::Flag::Implicit)) {
