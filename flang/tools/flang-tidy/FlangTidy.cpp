@@ -70,6 +70,12 @@ int runFlangTidy(const FlangTidyOptions &options) {
       llvm::errs() << "Semantic analysis failed\n";
     }
 
+    // is it fatal?
+    if (semantics.AnyFatalError()) {
+      semantics.EmitMessages(llvm::errs());
+      continue;
+    }
+
     // -dump-parse-tree
     if (options.dumpParseTree) {
       parser::DumpTree(llvm::outs(), program);
