@@ -34,7 +34,7 @@ void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
           allocatedVars_.find(*base) == allocatedVars_.end() &&
           base->owner() == context_.FindScope(context_.location().value())) {
         context_.Say(var.GetSource(),
-                     "Variable '%s' may be unallocated"_err_en_US,
+                     "Variable '%s' may be unallocated"_warn_en_US,
                      base->name().ToString());
       }
     }
