@@ -4,6 +4,7 @@
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
 #include "flang/Parser/parse-tree.h"
+#include "flang/Semantics/attr.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"
@@ -23,9 +24,19 @@ void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
   const auto &var = std::get<parser::Variable>(assignment.t);
   const auto *lhs = semantics::GetExpr(context_, var);
   if (lhs) {
+    // TODO: handle this better, ideally with a visitor(?)
     if (const semantics::Symbol * base{evaluate::GetFirstSymbol(*lhs)}; base) {
       // initialize the base symbol
       definedVars_.insert(*base);
+      // if it has attr allocatable and is not part of our allocated vars and
+      // is from the same scope, warn
+      if (base->attrs().test(semantics::Attr::ALLOCATABLE) &&
+          allocatedVars_.find(*base) == allocatedVars_.end() &&
+          base->owner() == context_.FindScope(context_.location().value())) {
+        context_.Say(var.GetSource(),
+                     "Variable '%s' may be unallocated"_err_en_US,
+                     base->name().ToString());
+      }
     }
   }
 }
@@ -69,7 +80,9 @@ void UninitializedVarCheck::Leave(const parser::AllocateStmt &allocateStmt) {
     // extract the first symbol from the AllocateObject
     if (expr) {
       if (auto dataRef{evaluate::ExtractDataRef(*expr, true, true)}) {
-        definedVars_.insert(dataRef->GetFirstSymbol());
+        // not counting an allocation as a definition
+        // definedVars_.insert(dataRef->GetFirstSymbol());
+        allocatedVars_.insert(dataRef->GetFirstSymbol());
       }
     }
   }
@@ -87,6 +100,8 @@ void UninitializedVarCheck::Leave(const parser::CommonStmt &commonStmt) {
       const auto &name = std::get<parser::Name>(object.t);
       if (const auto *symbol{name.symbol}) {
         definedVars_.insert(*symbol);
+        // TODO: check if this is correct
+        // allocatedVars_.insert(*symbol);
       }
     }
   }
@@ -104,6 +119,7 @@ void UninitializedVarCheck::Leave(const parser::CallStmt &callStmt) {
           if (intent == common::Intent::InOut ||
               intent == common::Intent::Out) {
             definedVars_.insert(*var);
+            allocatedVars_.insert(*var);
           }
         }
       }
@@ -130,6 +146,7 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
           if (intent == common::Intent::InOut ||
               intent == common::Intent::Out) {
             definedVars_.insert(*var);
+            allocatedVars_.insert(*var);
           }
         }
       }
@@ -140,7 +157,7 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
   if (std::holds_alternative<common::Indirection<parser::Designator>>(e.u)) {
     const auto symbols = evaluate::CollectSymbols(*expr);
 
-    if (!context_.location()) {
+    if (symbols.empty() || !context_.location()) {
       return;
     }
 
@@ -160,8 +177,16 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       }
 
       // is it inited?
-      if (semantics::IsInitialized(symbol))
+      if (semantics::IsInitialized(symbol, true, true, true))
         continue;
+
+      // is the symbol allocatable
+      if (symbol->attrs().test(semantics::Attr::ALLOCATABLE)) {
+        if (allocatedVars_.find(symbol) == allocatedVars_.end()) {
+          context_.Say(e.source, "Variable '%s' may be unallocated"_warn_en_US,
+                       symbol->name());
+        }
+      }
 
       if (definedVars_.find(symbol) == definedVars_.end()) {
         context_.Say(e.source,

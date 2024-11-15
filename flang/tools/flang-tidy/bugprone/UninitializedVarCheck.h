@@ -22,6 +22,7 @@ public:
 private:
   semantics::SemanticsContext &context_;
   semantics::UnorderedSymbolSet definedVars_;
+  semantics::UnorderedSymbolSet allocatedVars_;
 };
 
 } // namespace Fortran::tidy::bugprone
