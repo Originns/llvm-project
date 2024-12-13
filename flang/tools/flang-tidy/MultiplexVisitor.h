@@ -1,33 +1,48 @@
-#ifndef FORTRAN_TIDY_SEMANTICS_VISITOR
-#define FORTRAN_TIDY_SEMANTICS_VISITOR
+#ifndef FORTRAN_TIDY_MULTIPLEX_VISITOR
+#define FORTRAN_TIDY_MULTIPLEX_VISITOR
 
+#include "FlangTidyCheck.h"
 #include "flang/Parser/parse-tree-visitor.h"
 #include "flang/Semantics/semantics.h"
+#include <memory>
+#include <vector>
 
-namespace Fortran::tidy::utils {
+namespace Fortran::tidy {
 
-template <typename... C>
-class SemanticsVisitor : public virtual semantics::BaseChecker,
-                         public virtual C... {
+class MultiplexVisitor {
 public:
-  using semantics::BaseChecker::Enter;
-  using semantics::BaseChecker::Leave;
-  using C::Enter...;
-  using C::Leave...;
-  SemanticsVisitor(semantics::SemanticsContext &context)
-      : C{context}..., context_{context} {}
+  MultiplexVisitor(semantics::SemanticsContext &context) : context_{context} {}
+
+  void AddChecker(std::unique_ptr<FlangTidyCheck> checker) {
+    checkers_.emplace_back(std::move(checker));
+  }
 
   template <typename N>
   bool Pre(const N &node) {
     if constexpr (common::HasMember<const N *, semantics::ConstructNode>) {
       context_.PushConstruct(node);
     }
-    Enter(node);
+    for (auto &checker : checkers_) {
+      llvm::outs() << "Entering checker " << checker->name() << "\n";
+      checker->Enter(node);
+    }
     return true;
   }
+
+  bool Pre(const parser::ComputedGotoStmt &s) {
+    for (auto &checker : checkers_) {
+      llvm::outs() << "Entering checker for CompitedGotoStmt "
+                   << checker->name() << "\n";
+      checker->Enter(s);
+    }
+    return true;
+  }
+
   template <typename N>
   void Post(const N &node) {
-    Leave(node);
+    for (auto &checker : checkers_) {
+      checker->Leave(node);
+    }
     if constexpr (common::HasMember<const N *, semantics::ConstructNode>) {
       context_.PopConstruct();
     }
@@ -38,29 +53,40 @@ public:
     if (context_.IsInModuleFile(node.source))
       return true;
     context_.set_location(node.source);
-    Enter(node);
+    for (auto &checker : checkers_) {
+      checker->Enter(node);
+    }
     return true;
   }
+
   template <typename T>
   bool Pre(const parser::UnlabeledStatement<T> &node) {
     if (context_.IsInModuleFile(node.source))
       return true;
     context_.set_location(node.source);
-    Enter(node);
+    for (auto &checker : checkers_) {
+      checker->Enter(node);
+    }
     return true;
   }
+
   template <typename T>
   void Post(const parser::Statement<T> &node) {
     if (context_.IsInModuleFile(node.source))
       return;
-    Leave(node);
+    for (auto &checker : checkers_) {
+      checker->Leave(node);
+    }
     context_.set_location(std::nullopt);
   }
+
   template <typename T>
   void Post(const parser::UnlabeledStatement<T> &node) {
     if (context_.IsInModuleFile(node.source))
       return;
-    Leave(node);
+    for (auto &checker : checkers_) {
+      checker->Leave(node);
+    }
     context_.set_location(std::nullopt);
   }
 
@@ -69,9 +95,11 @@ public:
     return !context_.AnyFatalError();
   }
 
-private:
+public:
   semantics::SemanticsContext &context_;
+  std::vector<std::unique_ptr<FlangTidyCheck>> checkers_;
 };
 
-} // namespace Fortran::tidy::utils
-#endif // FORTRAN_TIDY_SEMANTICS_VISITOR
+} // namespace Fortran::tidy
+
+#endif // FORTRAN_TIDY_MULTIPLEX_VISITOR

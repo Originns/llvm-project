@@ -14,3 +14,5 @@ add_subdirectory(f18-parse-demo)
 add_subdirectory(fir-opt)
 add_subdirectory(fir-lsp-server)
 add_subdirectory(flang-tidy)
+
+add_subdirectory(test)

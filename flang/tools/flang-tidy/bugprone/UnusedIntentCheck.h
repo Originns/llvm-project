@@ -1,14 +1,19 @@
 #ifndef FORTRAN_TIDY_UNUSEDINTENTCHECK
 #define FORTRAN_TIDY_UNUSEDINTENTCHECK
 
-#include "flang/Evaluate/expression.h"
-#include "flang/Semantics/semantics.h"
-#include "flang/Semantics/symbol.h"
-#include "flang/Semantics/tools.h"
+#include "../FlangTidyCheck.h"
+#include "FlangTidyContext.h"
 
 namespace Fortran::tidy::bugprone {
 
-void CheckUnusedIntent(semantics::SemanticsContext &);
+class UnusedIntentCheck : public virtual FlangTidyCheck {
+public:
+  UnusedIntentCheck(llvm::StringRef name, FlangTidyContext *context);
+  ~UnusedIntentCheck();
+
+private:
+  FlangTidyContext *context_;
+};
 
 } // namespace Fortran::tidy::bugprone
 

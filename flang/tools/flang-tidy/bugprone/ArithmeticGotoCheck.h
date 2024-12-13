@@ -1,20 +1,22 @@
 #ifndef FORTRAN_TIDY_ARITHMETICGOTOCHECK
 #define FORTRAN_TIDY_ARITHMETICGOTOCHECK
 
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
 #include "flang/Parser/parse-tree.h"
-#include "flang/Semantics/semantics.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::bugprone {
 
-class ArithmeticGotoCheck : public virtual semantics::BaseChecker {
+class ArithmeticGotoCheck : public virtual FlangTidyCheck {
 public:
-  explicit ArithmeticGotoCheck(semantics::SemanticsContext &context)
-      : context_{context} {}
-  ~ArithmeticGotoCheck();
+  explicit ArithmeticGotoCheck(llvm::StringRef name, FlangTidyContext *context)
+      : FlangTidyCheck{name}, context_{context} {}
+  virtual ~ArithmeticGotoCheck();
   void Enter(const parser::ComputedGotoStmt &);
 
 private:
-  semantics::SemanticsContext &context_;
+  FlangTidyContext *context_;
 };
 
 } // namespace Fortran::tidy::bugprone

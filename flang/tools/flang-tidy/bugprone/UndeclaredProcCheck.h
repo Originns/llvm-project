@@ -1,11 +1,20 @@
 #ifndef FORTRAN_TIDY_IMPLICITPROCDECLCHECK
 #define FORTRAN_TIDY_IMPLICITPROCDECLCHECK
 
-#include "flang/Semantics/semantics.h"
+#include "../FlangTidyCheck.h"
+#include "../FlangTidyContext.h"
+#include "FlangTidyContext.h"
 
 namespace Fortran::tidy::bugprone {
 
-void CheckUndeclaredProc(semantics::SemanticsContext &);
+class UndeclaredProcCheck : public virtual FlangTidyCheck {
+public:
+  UndeclaredProcCheck(llvm::StringRef name, FlangTidyContext *context);
+  ~UndeclaredProcCheck();
+
+private:
+  FlangTidyContext *context_;
+};
 
 } // namespace Fortran::tidy::bugprone
 
