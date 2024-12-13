@@ -13,3 +13,5 @@ add_subdirectory(tco)
 add_subdirectory(f18-parse-demo)
 add_subdirectory(fir-opt)
 add_subdirectory(flang-tidy)
+
+add_subdirectory(test)

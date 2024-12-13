@@ -6,8 +6,9 @@
 
 namespace Fortran::tidy::bugprone {
 
-PrecisionLossCheck::PrecisionLossCheck(semantics::SemanticsContext &context)
-    : context_{context} {}
+PrecisionLossCheck::PrecisionLossCheck(llvm::StringRef name,
+                                       FlangTidyContext *context)
+    : FlangTidyCheck{name}, context_{context} {}
 
 PrecisionLossCheck::~PrecisionLossCheck() {}
 
@@ -15,16 +16,17 @@ using namespace parser::literals;
 void PrecisionLossCheck::Enter(const parser::AssignmentStmt &assignment) {
   const auto &var{std::get<parser::Variable>(assignment.t)};
   const auto &expr{std::get<parser::Expr>(assignment.t)};
-  const auto *lhs{semantics::GetExpr(context_, var)};
-  const auto *rhs{semantics::GetExpr(context_, expr)};
+  const auto *lhs{semantics::GetExpr(context_->getSemanticsContext(), var)};
+  const auto *rhs{semantics::GetExpr(context_->getSemanticsContext(), expr)};
   if (lhs && rhs) {
     const auto &lhsType{lhs->GetType()};
     const auto &rhsType{rhs->GetType()};
     if (lhsType && rhsType) {
-      if (lhsType->category() == rhsType->category()) {
+      if (lhsType->category() != common::TypeCategory::Derived &&
+          lhsType->category() == rhsType->category()) {
         if (lhsType->kind() < rhsType->kind()) {
-          context_.Say(
-              context_.location().value(),
+          context_->getSemanticsContext().Say(
+              context_->getSemanticsContext().location().value(),
               "Possible loss of precision in implicit conversion (%s to %s)"_warn_en_US,
               rhsType->AsFortran(), lhsType->AsFortran());
         }

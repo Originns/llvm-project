@@ -1,15 +1,21 @@
 #ifndef FORTRAN_TIDY_SHORTCIRCUIT
 #define FORTRAN_TIDY_SHORTCIRCUIT
 
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
 #include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/semantics.h"
 #include "flang/Semantics/symbol.h"
 
+#include "../FlangTidyContext.h"
+#include "llvm/ADT/StringRef.h"
+
 namespace Fortran::tidy::bugprone {
 
-class UninitializedVarCheck : public virtual semantics::BaseChecker {
+class UninitializedVarCheck : public virtual FlangTidyCheck {
 public:
-  explicit UninitializedVarCheck(semantics::SemanticsContext &);
+  explicit UninitializedVarCheck(llvm::StringRef name,
+                                 FlangTidyContext *context);
   ~UninitializedVarCheck();
   void Leave(const parser::AssignmentStmt &);
   void Leave(const parser::PointerAssignmentStmt &);
@@ -20,7 +26,7 @@ public:
   void Enter(const parser::Expr &);
 
 private:
-  semantics::SemanticsContext &context_;
+  FlangTidyContext *context_;
   semantics::UnorderedSymbolSet definedVars_;
   semantics::UnorderedSymbolSet allocatedVars_;
 };

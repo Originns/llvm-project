@@ -1,18 +1,20 @@
 #ifndef FORTRAN_TIDY_PRECISIONLOSS
 #define FORTRAN_TIDY_PRECISIONLOSS
 
-#include "flang/Semantics/semantics.h"
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::bugprone {
 
-class PrecisionLossCheck : public virtual semantics::BaseChecker {
+class PrecisionLossCheck : public virtual FlangTidyCheck {
 public:
-  explicit PrecisionLossCheck(semantics::SemanticsContext &);
+  explicit PrecisionLossCheck(llvm::StringRef name, FlangTidyContext *context);
   ~PrecisionLossCheck();
   void Enter(const parser::AssignmentStmt &);
 
 private:
-  semantics::SemanticsContext &context_;
+  FlangTidyContext *context_;
 };
 
 } // namespace Fortran::tidy::bugprone

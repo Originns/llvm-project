@@ -1,18 +1,21 @@
 #ifndef FORTRAN_TIDY_COMMONBLOCK
 #define FORTRAN_TIDY_COMMONBLOCK
 
-#include "flang/Semantics/semantics.h"
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::modernize {
 
-class AvoidCommonBlocksCheck : public virtual semantics::BaseChecker {
+class AvoidCommonBlocksCheck : public virtual FlangTidyCheck {
 public:
-  explicit AvoidCommonBlocksCheck(semantics::SemanticsContext &);
+  explicit AvoidCommonBlocksCheck(llvm::StringRef name,
+                                  FlangTidyContext *context);
   ~AvoidCommonBlocksCheck();
   void Enter(const parser::CommonStmt &);
 
 private:
-  semantics::SemanticsContext &context_;
+  FlangTidyContext *context_;
 };
 
 } // namespace Fortran::tidy::modernize

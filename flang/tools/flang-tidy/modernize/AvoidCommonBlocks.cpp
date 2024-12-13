@@ -1,18 +1,21 @@
 #include "AvoidCommonBlocks.h"
+#include "FlangTidyCheck.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::modernize {
 
-AvoidCommonBlocksCheck::AvoidCommonBlocksCheck(
-    semantics::SemanticsContext &context)
-    : context_{context} {}
+AvoidCommonBlocksCheck::AvoidCommonBlocksCheck(llvm::StringRef name,
+                                               FlangTidyContext *context)
+    : FlangTidyCheck{name}, context_{context} {}
 
 AvoidCommonBlocksCheck::~AvoidCommonBlocksCheck() {}
 
 using namespace parser::literals;
-void AvoidCommonBlocksCheck::Enter(const parser::CommonStmt &common) {
-  if (context_.location().has_value()) {
-    context_.Say(context_.location().value(),
-                 "Common blocks are not recommended"_warn_en_US);
+void AvoidCommonBlocksCheck::Enter(const parser::CommonStmt &) {
+  if (context_->getSemanticsContext().location().has_value()) {
+    context_->getSemanticsContext().Say(
+        context_->getSemanticsContext().location().value(),
+        "Common blocks are not recommended"_warn_en_US);
   }
 }
 

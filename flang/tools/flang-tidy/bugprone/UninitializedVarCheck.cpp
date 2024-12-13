@@ -13,16 +13,16 @@
 
 namespace Fortran::tidy::bugprone {
 
-UninitializedVarCheck::UninitializedVarCheck(
-    semantics::SemanticsContext &context)
-    : context_{context} {}
+UninitializedVarCheck::UninitializedVarCheck(llvm::StringRef name,
+                                             FlangTidyContext *context)
+    : FlangTidyCheck{name}, context_{context} {}
 
 UninitializedVarCheck::~UninitializedVarCheck() {}
 
 // check AssignmentStmts
 void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
   const auto &var = std::get<parser::Variable>(assignment.t);
-  const auto *lhs = semantics::GetExpr(context_, var);
+  const auto *lhs = semantics::GetExpr(context_->getSemanticsContext(), var);
   if (lhs) {
     // TODO: handle this better, ideally with a visitor(?)
     if (const semantics::Symbol * base{evaluate::GetFirstSymbol(*lhs)}; base) {
@@ -32,10 +32,12 @@ void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
       // is from the same scope, warn
       if (base->attrs().test(semantics::Attr::ALLOCATABLE) &&
           allocatedVars_.find(*base) == allocatedVars_.end() &&
-          base->owner() == context_.FindScope(context_.location().value())) {
-        context_.Say(var.GetSource(),
-                     "Variable '%s' may be unallocated"_warn_en_US,
-                     base->name().ToString());
+          base->owner() ==
+              context_->getSemanticsContext().FindScope(
+                  context_->getSemanticsContext().location().value())) {
+        context_->getSemanticsContext().Say(
+            var.GetSource(), "Variable '%s' may be unallocated"_warn_en_US,
+            base->name().ToString());
       }
     }
   }
@@ -157,11 +159,12 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
   if (std::holds_alternative<common::Indirection<parser::Designator>>(e.u)) {
     const auto symbols = evaluate::CollectSymbols(*expr);
 
-    if (symbols.empty() || !context_.location()) {
+    if (symbols.empty() || !context_->getSemanticsContext().location()) {
       return;
     }
 
-    const auto &scope = context_.FindScope(context_.location().value());
+    const auto &scope = context_->getSemanticsContext().FindScope(
+        context_->getSemanticsContext().location().value());
 
     for (const auto &symbol : symbols) {
       // if the symbol doesnt originate from our scope, skip it
@@ -183,15 +186,16 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       // is the symbol allocatable
       if (symbol->attrs().test(semantics::Attr::ALLOCATABLE)) {
         if (allocatedVars_.find(symbol) == allocatedVars_.end()) {
-          context_.Say(e.source, "Variable '%s' may be unallocated"_warn_en_US,
-                       symbol->name());
+          context_->getSemanticsContext().Say(
+              e.source, "Variable '%s' may be unallocated"_warn_en_US,
+              symbol->name());
         }
       }
 
       if (definedVars_.find(symbol) == definedVars_.end()) {
-        context_.Say(e.source,
-                     "Variable '%s' may be used uninitialized"_warn_en_US,
-                     symbol->name());
+        context_->getSemanticsContext().Say(
+            e.source, "Variable '%s' may be used uninitialized"_warn_en_US,
+            symbol->name());
       }
     }
   }

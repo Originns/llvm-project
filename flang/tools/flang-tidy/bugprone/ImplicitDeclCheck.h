@@ -1,11 +1,20 @@
 #ifndef FORTRAN_TIDY_IMPLICITDECLCHECK
 #define FORTRAN_TIDY_IMPLICITDECLCHECK
 
-#include "flang/Semantics/semantics.h"
+#include "../FlangTidyCheck.h"
+#include "FlangTidyContext.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::bugprone {
 
-void CheckImplicitDecl(semantics::SemanticsContext &);
+class ImplicitDeclCheck : public virtual FlangTidyCheck {
+public:
+  ImplicitDeclCheck(llvm::StringRef name, FlangTidyContext *context);
+  ~ImplicitDeclCheck();
+
+private:
+  FlangTidyContext *context_;
+};
 
 } // namespace Fortran::tidy::bugprone
 
