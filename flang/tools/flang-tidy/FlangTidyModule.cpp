@@ -25,11 +25,8 @@ void FlangTidyCheckFactories::registerCheckFactory(llvm::StringRef Name,
 std::vector<std::unique_ptr<FlangTidyCheck>>
 FlangTidyCheckFactories::createChecks(FlangTidyContext *Context) const {
   std::vector<std::unique_ptr<FlangTidyCheck>> Checks;
-  llvm::outs() << "Registered " << Factories.size() << " checks\n";
   for (const auto &Factory : Factories) {
-    llvm::outs() << "Comparing check: " << Factory.getKey() << "\n";
     if (Context->isCheckEnabled(Factory.getKey())) {
-      llvm::outs() << "Adding check: " << Factory.getKey() << "\n";
       Checks.emplace_back(Factory.getValue()(Factory.getKey(), Context));
     }
   }

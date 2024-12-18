@@ -12,8 +12,8 @@ public:
   explicit ArithmeticIfStmtCheck(llvm::StringRef name,
                                  FlangTidyContext *context)
       : FlangTidyCheck{name}, context_{context} {}
-  ~ArithmeticIfStmtCheck();
-  void Enter(const parser::ArithmeticIfStmt &);
+  virtual ~ArithmeticIfStmtCheck() = default;
+  void Enter(const parser::ArithmeticIfStmt &) override;
 
 private:
   FlangTidyContext *context_;

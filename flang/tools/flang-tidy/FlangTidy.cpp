@@ -1,12 +1,7 @@
 #include "FlangTidy.h"
 #include "FlangTidyModule.h"
-#include "bugprone/ArithmeticGotoCheck.h"
-#include "bugprone/ArithmeticIfStmtCheck.h"
-#include "bugprone/ImplicitDeclCheck.h"
-#include "bugprone/PrecisionLossCheck.h"
-#include "bugprone/UndeclaredProcCheck.h"
-#include "bugprone/UninitializedVarCheck.h"
-#include "bugprone/UnusedIntentCheck.h"
+#include "FlangTidyModuleRegistry.h"
+#include "MultiplexVisitor.h"
 #include "flang/Common/Fortran-features.h"
 #include "flang/Common/default-kinds.h"
 #include "flang/Parser/dump-parse-tree.h"
@@ -14,15 +9,7 @@
 #include "flang/Parser/parsing.h"
 #include "flang/Semantics/semantics.h"
 #include "flang/Semantics/symbol.h"
-#include "modernize/AvoidAssignStmt.h"
-#include "modernize/AvoidBackspaceStmt.h"
-#include "modernize/AvoidCommonBlocks.h"
-#include "modernize/AvoidDataConstructs.h"
-#include "utils/SemanticsVisitor.h"
 #include "llvm/ADT/SmallString.h"
-// include llvm::sys::path
-#include "FlangTidyModuleRegistry.h"
-#include "MultiplexVisitor.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -144,35 +131,12 @@ int runFlangTidy(const FlangTidyOptions &options) {
   auto checks = visitorFactory.CheckFactories->createChecks(&context);
 
   for (auto &&check : checks) {
-    llvm::outs() << "Adding check " << check->name()
-                 << " with addr: " << check.get() << "\n";
     visitor.AddChecker(std::move(check));
   }
 
-  for (auto &&check : visitor.checkers_) {
-    llvm::outs() << "check " << check->name()
-                 << " with addr: " << check.get() << "\n";
-  }
-
   visitor.Walk(program);
 
-  llvm::outs() << "Done\n";
-
-  /*
-  // TODO: make a global context to enable/disable visitor-based checks
-  utils::SemanticsVisitor<
-      bugprone::ArithmeticGotoCheck, bugprone::ArithmeticIfStmtCheck,
-      bugprone::ImplicitDeclCheck, bugprone::PrecisionLossCheck,
-      bugprone::UndeclaredProcCheck, bugprone::UninitializedVarCheck,
-      bugprone::UnusedIntentCheck, modernize::AvoidAssignStmtCheck,
-      modernize::AvoidBackspaceStmtCheck, modernize::AvoidCommonBlocksCheck,
-      modernize::AvoidDataConstructsCheck>
-      visitor{semanticsContext};
-  visitor.Walk(program);
-   */
   semantics.EmitMessages(llvm::errs());
-
-  llvm::outs() << "Done done" << "\n";
 
   return 0;
 }

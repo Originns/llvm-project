@@ -8,8 +8,6 @@ AvoidDataConstructsCheck::AvoidDataConstructsCheck(llvm::StringRef name,
                                                    FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
 
-AvoidDataConstructsCheck::~AvoidDataConstructsCheck() {}
-
 using namespace parser::literals;
 void AvoidDataConstructsCheck::Enter(const parser::DataStmt &) {
   if (context_->getSemanticsContext().location().has_value()) {

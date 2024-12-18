@@ -1,4 +1,4 @@
-! RUN: %check_flang_tidy %s avoid-commonblock %t
+! RUN: %check_flang_tidy %s modernize-avoid-common-blocks %t
 subroutine s
   real :: x, y, z
   common /c/ x, y, z

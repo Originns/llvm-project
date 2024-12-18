@@ -10,8 +10,8 @@ namespace Fortran::tidy::bugprone {
 class PrecisionLossCheck : public virtual FlangTidyCheck {
 public:
   explicit PrecisionLossCheck(llvm::StringRef name, FlangTidyContext *context);
-  ~PrecisionLossCheck();
-  void Enter(const parser::AssignmentStmt &);
+  virtual ~PrecisionLossCheck() = default;
+  void Enter(const parser::AssignmentStmt &) override;
 
 private:
   FlangTidyContext *context_;

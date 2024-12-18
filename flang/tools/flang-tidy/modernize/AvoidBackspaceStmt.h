@@ -12,8 +12,8 @@ class AvoidBackspaceStmtCheck : public virtual FlangTidyCheck {
 public:
   explicit AvoidBackspaceStmtCheck(llvm::StringRef name,
                                    FlangTidyContext *context);
-  ~AvoidBackspaceStmtCheck();
-  void Enter(const parser::BackspaceStmt &);
+  virtual ~AvoidBackspaceStmtCheck() = default;
+  void Enter(const parser::BackspaceStmt &) override;
 
 private:
   FlangTidyContext *context_;

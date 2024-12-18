@@ -9,7 +9,7 @@ namespace Fortran::tidy::bugprone {
 class UnusedIntentCheck : public virtual FlangTidyCheck {
 public:
   UnusedIntentCheck(llvm::StringRef name, FlangTidyContext *context);
-  ~UnusedIntentCheck();
+  virtual ~UnusedIntentCheck() = default;
 
 private:
   FlangTidyContext *context_;

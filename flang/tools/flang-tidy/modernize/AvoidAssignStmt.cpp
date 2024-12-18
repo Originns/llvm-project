@@ -8,8 +8,6 @@ AvoidAssignStmtCheck::AvoidAssignStmtCheck(llvm::StringRef name,
                                            FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
 
-AvoidAssignStmtCheck::~AvoidAssignStmtCheck() {}
-
 using namespace parser::literals;
 void AvoidAssignStmtCheck::Enter(const parser::AssignStmt &) {
   if (context_->getSemanticsContext().location().has_value()) {

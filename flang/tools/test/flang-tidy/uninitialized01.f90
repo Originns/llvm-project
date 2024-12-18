@@ -1,4 +1,4 @@
-! RUN: %check_flang_tidy %s uninitialized-var %t
+! RUN: %check_flang_tidy %s bugprone-uninitialized-variable %t
 subroutine s
   real :: i
   i = i * 5.0

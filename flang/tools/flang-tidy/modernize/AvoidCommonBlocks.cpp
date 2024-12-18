@@ -8,8 +8,6 @@ AvoidCommonBlocksCheck::AvoidCommonBlocksCheck(llvm::StringRef name,
                                                FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
 
-AvoidCommonBlocksCheck::~AvoidCommonBlocksCheck() {}
-
 using namespace parser::literals;
 void AvoidCommonBlocksCheck::Enter(const parser::CommonStmt &) {
   if (context_->getSemanticsContext().location().has_value()) {

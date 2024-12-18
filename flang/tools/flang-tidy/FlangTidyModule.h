@@ -53,7 +53,6 @@ public:
   void registerCheck(llvm::StringRef CheckName) {
     registerCheckFactory(CheckName,
                          [](llvm::StringRef Name, FlangTidyContext *Context) {
-                           llvm::outs() << "hi from lambda" << "\n";
                            return std::make_unique<CheckType>(Name, Context);
                          });
   }

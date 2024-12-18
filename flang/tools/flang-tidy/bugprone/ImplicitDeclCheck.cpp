@@ -25,8 +25,6 @@ static void CheckForImplicitDeclarations(semantics::SemanticsContext &context,
   }
 }
 
-ImplicitDeclCheck::~ImplicitDeclCheck() {}
-
 ImplicitDeclCheck::ImplicitDeclCheck(llvm::StringRef name,
                                      FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {

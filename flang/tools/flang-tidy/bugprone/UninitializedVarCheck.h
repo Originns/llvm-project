@@ -16,14 +16,14 @@ class UninitializedVarCheck : public virtual FlangTidyCheck {
 public:
   explicit UninitializedVarCheck(llvm::StringRef name,
                                  FlangTidyContext *context);
-  ~UninitializedVarCheck();
-  void Leave(const parser::AssignmentStmt &);
-  void Leave(const parser::PointerAssignmentStmt &);
-  void Enter(const parser::DoConstruct &);
-  void Leave(const parser::AllocateStmt &);
-  void Leave(const parser::CommonStmt &);
-  void Leave(const parser::CallStmt &);
-  void Enter(const parser::Expr &);
+  virtual ~UninitializedVarCheck() = default;
+  void Leave(const parser::AssignmentStmt &) override;
+  void Leave(const parser::PointerAssignmentStmt &) override;
+  void Enter(const parser::DoConstruct &) override;
+  void Leave(const parser::AllocateStmt &) override;
+  void Leave(const parser::CommonStmt &) override;
+  void Leave(const parser::CallStmt &) override;
+  void Enter(const parser::Expr &) override;
 
 private:
   FlangTidyContext *context_;

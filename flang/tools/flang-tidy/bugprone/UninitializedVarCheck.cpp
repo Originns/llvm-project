@@ -17,8 +17,6 @@ UninitializedVarCheck::UninitializedVarCheck(llvm::StringRef name,
                                              FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
 
-UninitializedVarCheck::~UninitializedVarCheck() {}
-
 // check AssignmentStmts
 void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
   const auto &var = std::get<parser::Variable>(assignment.t);
