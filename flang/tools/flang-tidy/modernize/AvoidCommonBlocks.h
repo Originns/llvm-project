@@ -11,8 +11,8 @@ class AvoidCommonBlocksCheck : public virtual FlangTidyCheck {
 public:
   explicit AvoidCommonBlocksCheck(llvm::StringRef name,
                                   FlangTidyContext *context);
-  ~AvoidCommonBlocksCheck();
-  void Enter(const parser::CommonStmt &);
+  virtual ~AvoidCommonBlocksCheck() = default;
+  void Enter(const parser::CommonStmt &) override;
 
 private:
   FlangTidyContext *context_;

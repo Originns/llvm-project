@@ -1,4 +1,4 @@
-! RUN: %check_flang_tidy %s precision-loss %t
+! RUN: %check_flang_tidy %s bugprone-precision-loss %t
 subroutine s
   real(8) :: i
   real(4) :: j

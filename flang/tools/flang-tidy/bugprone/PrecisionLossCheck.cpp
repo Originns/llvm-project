@@ -10,8 +10,6 @@ PrecisionLossCheck::PrecisionLossCheck(llvm::StringRef name,
                                        FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
 
-PrecisionLossCheck::~PrecisionLossCheck() {}
-
 using namespace parser::literals;
 void PrecisionLossCheck::Enter(const parser::AssignmentStmt &assignment) {
   const auto &var{std::get<parser::Variable>(assignment.t)};

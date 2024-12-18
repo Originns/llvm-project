@@ -10,7 +10,7 @@ namespace Fortran::tidy::bugprone {
 class ImplicitDeclCheck : public virtual FlangTidyCheck {
 public:
   ImplicitDeclCheck(llvm::StringRef name, FlangTidyContext *context);
-  ~ImplicitDeclCheck();
+  virtual ~ImplicitDeclCheck() = default;
 
 private:
   FlangTidyContext *context_;

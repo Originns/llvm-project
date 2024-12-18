@@ -23,17 +23,7 @@ public:
       context_.PushConstruct(node);
     }
     for (auto &checker : checkers_) {
-      llvm::outs() << "Entering checker " << checker->name() << "\n";
       checker->Enter(node);
-    }
-    return true;
-  }
-
-  bool Pre(const parser::ComputedGotoStmt &s) {
-    for (auto &checker : checkers_) {
-      llvm::outs() << "Entering checker for CompitedGotoStmt "
-                   << checker->name() << "\n";
-      checker->Enter(s);
     }
     return true;
   }

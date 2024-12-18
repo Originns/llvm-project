@@ -10,8 +10,8 @@ class AvoidDataConstructsCheck : public virtual FlangTidyCheck {
 public:
   explicit AvoidDataConstructsCheck(llvm::StringRef name,
                                     FlangTidyContext *context);
-  ~AvoidDataConstructsCheck();
-  void Enter(const parser::DataStmt &);
+  virtual ~AvoidDataConstructsCheck() = default;
+  void Enter(const parser::DataStmt &) override;
 
 private:
   FlangTidyContext *context_;

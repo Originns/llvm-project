@@ -32,8 +32,6 @@ static void CheckForUndeclaredProcedures(semantics::SemanticsContext &context,
   }
 }
 
-UndeclaredProcCheck::~UndeclaredProcCheck() {}
-
 UndeclaredProcCheck::UndeclaredProcCheck(llvm::StringRef name,
                                          FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {

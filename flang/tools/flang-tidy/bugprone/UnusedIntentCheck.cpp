@@ -45,8 +45,6 @@ static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
   }
 }
 
-UnusedIntentCheck::~UnusedIntentCheck() {}
-
 UnusedIntentCheck::UnusedIntentCheck(llvm::StringRef name,
                                      FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {

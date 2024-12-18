@@ -2,8 +2,6 @@
 
 namespace Fortran::tidy::bugprone {
 
-ArithmeticIfStmtCheck::~ArithmeticIfStmtCheck() {}
-
 using namespace parser::literals;
 void ArithmeticIfStmtCheck::Enter(const parser::ArithmeticIfStmt &ifStmt) {
   if (context_->getSemanticsContext().location().has_value()) {

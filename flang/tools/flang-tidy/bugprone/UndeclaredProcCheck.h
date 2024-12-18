@@ -10,7 +10,7 @@ namespace Fortran::tidy::bugprone {
 class UndeclaredProcCheck : public virtual FlangTidyCheck {
 public:
   UndeclaredProcCheck(llvm::StringRef name, FlangTidyContext *context);
-  ~UndeclaredProcCheck();
+  virtual ~UndeclaredProcCheck() = default;
 
 private:
   FlangTidyContext *context_;

@@ -9,8 +9,6 @@ AvoidBackspaceStmtCheck::AvoidBackspaceStmtCheck(llvm::StringRef name,
                                                  FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
 
-AvoidBackspaceStmtCheck::~AvoidBackspaceStmtCheck() {}
-
 using namespace parser::literals;
 void AvoidBackspaceStmtCheck::Enter(const parser::BackspaceStmt &) {
   if (context_->getSemanticsContext().location().has_value()) {

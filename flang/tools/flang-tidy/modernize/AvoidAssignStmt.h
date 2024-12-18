@@ -11,9 +11,9 @@ class AvoidAssignStmtCheck : public virtual FlangTidyCheck {
 public:
   explicit AvoidAssignStmtCheck(llvm::StringRef name,
                                 FlangTidyContext *context);
-  ~AvoidAssignStmtCheck();
-  void Enter(const parser::AssignStmt &);
-  void Enter(const parser::AssignedGotoStmt &);
+  virtual ~AvoidAssignStmtCheck() = default;
+  void Enter(const parser::AssignStmt &) override;
+  void Enter(const parser::AssignedGotoStmt &) override;
 
 private:
   FlangTidyContext *context_;

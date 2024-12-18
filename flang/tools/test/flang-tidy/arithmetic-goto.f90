@@ -1,4 +1,4 @@
-! RUN: %check_flang_tidy %s arithmetic-goto %t
+! RUN: %check_flang_tidy %s bugprone-arithmetic-goto %t
 subroutine s(i)
   integer, intent(in) :: i
   goto (10, 20, 30), i

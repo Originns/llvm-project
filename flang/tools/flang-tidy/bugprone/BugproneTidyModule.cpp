@@ -22,7 +22,7 @@ public:
         "bugprone-implicit-declaration");
     CheckFactories.registerCheck<PrecisionLossCheck>("bugprone-precision-loss");
     CheckFactories.registerCheck<UndeclaredProcCheck>(
-        "bugprone-undeclared-proc");
+        "bugprone-undeclared-procedure");
     CheckFactories.registerCheck<UninitializedVarCheck>(
         "bugprone-uninitialized-variable");
     CheckFactories.registerCheck<UnusedIntentCheck>("bugprone-unused-intent");

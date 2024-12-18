@@ -137,6 +137,7 @@ class CheckRunner:
             ]
             + ["-Wall"]
             #+ ["--checks=-*," + self.check_name]
+            + ["--checks=" + self.check_name]
             #+ self.extra_args
             #+ ["--"]
             #+ self.flang_extra_args

@@ -2,6 +2,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FileSystem.h"
 #include <sstream>
 
 namespace Fortran::tidy {
@@ -44,6 +45,11 @@ int flangTidyMain(int argc, const char **argv) {
   // only one file allowed for now
   if (FileOption.size() > 1) {
     llvm::errs() << "Error: Only one input file allowed.\n";
+    return 1;
+  }
+
+  if (!llvm::sys::fs::exists(FileOption[0])) {
+    llvm::errs() << "Error: File not found: " << FileOption[0] << "\n";
     return 1;
   }
 

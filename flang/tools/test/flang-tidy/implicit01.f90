@@ -1,4 +1,4 @@
-! RUN: %check_flang_tidy %s implicit %t
+! RUN: %check_flang_tidy %s bugprone-implicit-declaration %t
 subroutine s
   integer :: i, j
   i = 1
