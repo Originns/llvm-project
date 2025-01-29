@@ -7,12 +7,10 @@
 namespace Fortran::tidy {
 
 struct FlangTidyOptions {
-  std::string fileName;
+  std::vector<std::string> sourcePaths;
   std::vector<std::string> enabledChecks;
-  bool enableAllWarnings = false;
-  bool dumpParseTree = false;
   std::vector<std::string> extraArgs;
-  const char **argv;
+  const char *argv0;
 };
 
 } // namespace Fortran::tidy

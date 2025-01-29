@@ -1,33 +1,21 @@
 #include "FlangTidy.h"
+#include "FlangTidyContext.h"
 #include "FlangTidyModule.h"
 #include "FlangTidyModuleRegistry.h"
 #include "MultiplexVisitor.h"
-#include "flang/Common/Fortran-features.h"
-#include "flang/Common/default-kinds.h"
-#include "flang/Parser/dump-parse-tree.h"
-#include "flang/Parser/message.h"
-#include "flang/Parser/parsing.h"
-#include "flang/Semantics/semantics.h"
-#include "flang/Semantics/symbol.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
-
-// llvm make array ref
-#include "llvm/ADT/ArrayRef.h"
-
 #include "flang/Frontend/CompilerInstance.h"
 #include "flang/Frontend/CompilerInvocation.h"
 #include "flang/Frontend/TextDiagnosticBuffer.h"
 #include "flang/FrontendTool/Utils.h"
-#include "clang/Driver/DriverDiagnostic.h"
+#include "flang/Parser/parsing.h"
+#include "flang/Semantics/semantics.h"
+#include "flang/Semantics/symbol.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Support/TargetSelect.h"
-
-#include "FlangTidyContext.h"
+#include "llvm/Support/raw_ostream.h"
 
 LLVM_INSTANTIATE_REGISTRY(Fortran::tidy::FlangTidyModuleRegistry)
 
@@ -85,30 +73,28 @@ int runFlangTidy(const FlangTidyOptions &options) {
     return 1;
   }
 
-  // convert the filename to StringRef
-  llvm::StringRef fileName(options.fileName);
-
-  // pass the files
-  flang->getFrontendOpts().inputs.emplace_back(frontend::FrontendInputFile{
-    fileName, frontend::Language::Fortran});
-
-  frontend::TextDiagnosticBuffer *diagsBuffer = new frontend::TextDiagnosticBuffer;
+  frontend::TextDiagnosticBuffer *diagsBuffer =
+      new frontend::TextDiagnosticBuffer;
   llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> diagID(
-    new clang::DiagnosticIDs());
+      new clang::DiagnosticIDs());
   llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagOpts =
       new clang::DiagnosticOptions();
   clang::DiagnosticsEngine diags(diagID, &*diagOpts, diagsBuffer);
 
-  // convert the options to a format that can be passed to the compiler invocation
+  // convert the options to a format that can be passed to the compiler
+  // invocation
   llvm::ArrayRef<const char *> argv;
-  std::vector<std::string> args = options.extraArgs;
 
   // turn extra args into a format that can be passed to the compiler invocation
   std::vector<const char *> cstrArgs;
-  // add input files
-  cstrArgs.push_back(options.fileName.c_str());
 
-  for (const auto &arg : args) {
+  // add input files
+  for (const auto &sourcePath : options.sourcePaths) {
+    cstrArgs.push_back(sourcePath.c_str());
+  }
+
+  // add extra args
+  for (const auto &arg : options.extraArgs) {
     cstrArgs.push_back(arg.c_str());
   }
 
@@ -116,9 +102,8 @@ int runFlangTidy(const FlangTidyOptions &options) {
   flang->getFrontendOpts().programAction = frontend::ParseSyntaxOnly;
 
   // parse arguments
-  const char *argv0 = options.argv[0];
   bool success = Fortran::frontend::CompilerInvocation::createFromArgs(
-      flang->getInvocation(), argv, diags, argv0);
+      flang->getInvocation(), argv, diags, options.argv0);
 
   // initialize targets
   llvm::InitializeAllTargets();
@@ -166,10 +151,10 @@ int runFlangTidy(const FlangTidyOptions &options) {
     visitor.AddChecker(std::move(check));
   }
 
-  visitor.Walk(*parseTree);  
+  visitor.Walk(*parseTree);
 
   semantics.EmitMessages(llvm::errs());
-  //diagsBuffer->flushDiagnostics(flang->getDiagnostics());
+  // diagsBuffer->flushDiagnostics(flang->getDiagnostics());
 
   return 0;
 }

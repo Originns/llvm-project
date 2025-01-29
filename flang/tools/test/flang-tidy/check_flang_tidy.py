@@ -123,7 +123,7 @@ class CheckRunner:
         args = (
             [
                 "flang-tidy",
-                "--file=" + self.temp_file_name,
+                self.temp_file_name,
             ]
             + ["--checks=" + self.check_name]
             #+ self.extra_args
