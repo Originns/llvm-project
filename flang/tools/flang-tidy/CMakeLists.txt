@@ -1,7 +1,12 @@
+link_directories(${LLVM_LIBRARY_DIR})
+
 set(LLVM_LINK_COMPONENTS
+  ${LLVM_TARGETS_TO_BUILD}
   FrontendOpenACC
   FrontendOpenMP
   Support
+  Option
+  TargetParser
   )
 
 add_flang_tool(flang-tidy
@@ -33,4 +38,12 @@ target_link_libraries(flang-tidy
   FortranParser
   FortranSemantics
   LLVMSupport
+  flangFrontend
+  flangFrontendTool
   )
+
+clang_target_link_libraries(flang
+  PRIVATE
+  clangDriver
+  clangBasic
+)

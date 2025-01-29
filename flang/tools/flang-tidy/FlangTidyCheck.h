@@ -35,7 +35,7 @@ public:
   virtual void Enter(const parser::CommonStmt &) {}
   virtual void Enter(const parser::DataStmt &) {}
 protected:
-  bool fix_available_{false};
+  bool fixAvailable_{false};
 private:
   llvm::StringRef name_;
 };
