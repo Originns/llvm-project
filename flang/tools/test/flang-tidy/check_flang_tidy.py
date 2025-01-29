@@ -14,16 +14,6 @@ FlangTidy Test Helper
 
 This script helps run flang-tidy checks with llvm-lit. By default, it runs flang-tidy
 without applying fixes and uses FileCheck to verify warnings.
-
-Examples
---------
-
-  // RUN: %check_flang_tidy %s some-check-name %t -- -- -I %S/Inputs
-
-or
-
-  // RUN: %check_flang_tidy %s some-check-name %t -std=f2003
-
 """
 
 import argparse
@@ -135,8 +125,6 @@ class CheckRunner:
                 "flang-tidy",
                 "--file=" + self.temp_file_name,
             ]
-            + ["-Wall"]
-            #+ ["--checks=-*," + self.check_name]
             + ["--checks=" + self.check_name]
             #+ self.extra_args
             #+ ["--"]
