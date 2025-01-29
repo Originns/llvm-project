@@ -75,16 +75,6 @@ MultiplexVisitorFactory::MultiplexVisitorFactory()
   }
 }
 
-/*
-static std::string getIntrinsicDir(const char *argv) {
-  llvm::SmallString<128> driverPath;
-  driverPath.assign(llvm::sys::fs::getMainExecutable(argv, nullptr));
-  llvm::sys::path::remove_filename(driverPath);
-  driverPath.append("/../include/flang/");
-  return std::string(driverPath);
-}
-*/
-
 int runFlangTidy(const FlangTidyOptions &options) {
   auto flang = std::make_unique<Fortran::frontend::CompilerInstance>();
 
@@ -113,6 +103,11 @@ int runFlangTidy(const FlangTidyOptions &options) {
   llvm::ArrayRef<const char *> argv;
   std::vector<std::string> args = options.extraArgs;
 
+  // print extraArgs
+  for (const auto &arg : args) {
+    llvm::outs() << arg << "\n";
+  }
+
   // turn extra args into a format that can be passed to the compiler invocation
   std::vector<const char *> cstrArgs;
   // add input files
@@ -129,7 +124,7 @@ int runFlangTidy(const FlangTidyOptions &options) {
   const char *argv0 = options.argv[0];
   bool success = Fortran::frontend::CompilerInvocation::createFromArgs(
       flang->getInvocation(), argv, diags, argv0);
-    
+
   // initialize targets
   llvm::InitializeAllTargets();
   llvm::InitializeAllTargetMCs();
@@ -165,10 +160,6 @@ int runFlangTidy(const FlangTidyOptions &options) {
 
   auto &semantics = flang->getSemantics();
   auto &semanticsContext = semantics.context();
-
-  if (options.dumpParseTree) {
-    Fortran::parser::DumpTree(llvm::outs(), *parseTree);
-  }
 
   FlangTidyContext context{options, &semanticsContext};
 

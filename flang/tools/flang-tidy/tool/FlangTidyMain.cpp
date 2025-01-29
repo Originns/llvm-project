@@ -21,11 +21,7 @@ llvm::cl::opt<std::string>
 llvm::cl::list<std::string>
     ExtraArgs("extra-arg",
               llvm::cl::desc("Additional arguments to pass to the frontend"),
-              llvm::cl::ZeroOrMore, llvm::cl::value_desc("arg"));
-
-llvm::cl::opt<bool> DumpParseTree("dump-parse-tree",
-                                  llvm::cl::desc("Dump parse tree"),
-                                  llvm::cl::init(false));
+              llvm::cl::ZeroOrMore, llvm::cl::sub(llvm::cl::SubCommand::getAll()));
 
 int flangTidyMain(int argc, const char **argv) {
   llvm::InitLLVM X(argc, argv);
@@ -60,7 +56,6 @@ int flangTidyMain(int argc, const char **argv) {
     options.enabledChecks.push_back(check);
   }
 
-  options.dumpParseTree = DumpParseTree;
   options.extraArgs.assign(ExtraArgs.begin(), ExtraArgs.end());
 
   // run flang-tidy

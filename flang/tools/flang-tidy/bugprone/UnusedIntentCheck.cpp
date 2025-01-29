@@ -19,16 +19,15 @@ static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
   }};
   for (const auto &pair : scope) {
     const semantics::Symbol &symbol = *pair.second;
-    if (!WasDefined(symbol) && semantics::IsIntentInOut(symbol)) {
-      context.Say(
-          symbol.name(),
-          "Variable '%s' with intent(inout) is never defined, consider changing to intent(in)"_warn_en_US,
-          symbol.name());
-    }
-
     // is the symbol a function argument
     if (const auto *details{symbol.detailsIf<semantics::ObjectEntityDetails>()};
         details && details->isDummy()) {
+      if (!WasDefined(symbol) && semantics::IsIntentInOut(symbol)) {
+        context.Say(
+            symbol.name(),
+            "Variable '%s' with intent(inout) is never defined, consider changing to intent(in)"_warn_en_US,
+            symbol.name());
+      }
       if (!symbol.attrs().HasAny({semantics::Attr::INTENT_IN,
                                   semantics::Attr::INTENT_INOUT,
                                   semantics::Attr::INTENT_OUT})) {
