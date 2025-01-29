@@ -112,6 +112,8 @@ void UninitializedVarCheck::Leave(const parser::CallStmt &callStmt) {
   const auto *procedureRef = callStmt.typedCall.get();
   if (procedureRef) {
     for (const auto &arg : procedureRef->arguments()) {
+      if (!arg)
+        continue;
       if (const semantics::SomeExpr * argExpr{arg->UnwrapExpr()}) {
         if (const semantics::Symbol *
             var{evaluate::UnwrapWholeSymbolDataRef(*argExpr)}) {
