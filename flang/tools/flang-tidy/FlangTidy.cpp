@@ -103,11 +103,6 @@ int runFlangTidy(const FlangTidyOptions &options) {
   llvm::ArrayRef<const char *> argv;
   std::vector<std::string> args = options.extraArgs;
 
-  // print extraArgs
-  for (const auto &arg : args) {
-    llvm::outs() << arg << "\n";
-  }
-
   // turn extra args into a format that can be passed to the compiler invocation
   std::vector<const char *> cstrArgs;
   // add input files

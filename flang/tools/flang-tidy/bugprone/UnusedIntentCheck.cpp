@@ -25,7 +25,7 @@ static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
       if (!WasDefined(symbol) && semantics::IsIntentInOut(symbol)) {
         context.Say(
             symbol.name(),
-            "Variable '%s' with intent(inout) is never defined, consider changing to intent(in)"_warn_en_US,
+            "Dummy argument '%s' with intent(inout) is never written to, consider changing to intent(in)"_warn_en_US,
             symbol.name());
       }
       if (!symbol.attrs().HasAny({semantics::Attr::INTENT_IN,
