@@ -19,9 +19,26 @@ public:
     }
     Context = ctx;
   }
-
   bool isCheckEnabled(const llvm::StringRef &CheckName) const {
-    return Checks.count(CheckName) > 0;
+    if (Checks.count(CheckName) > 0) {
+      return true;
+    }
+
+    if (Checks.count("*") > 0) {
+      return true;
+    }
+
+    for (const auto &EnabledPattern : Checks) {
+      if (EnabledPattern.ends_with(
+              "*")) { 
+        llvm::StringRef Prefix = EnabledPattern.drop_back(1);
+        if (CheckName.starts_with(Prefix)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   semantics::SemanticsContext &getSemanticsContext() const { return *Context; }

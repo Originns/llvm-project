@@ -14,6 +14,19 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
+// llvm make array ref
+#include "llvm/ADT/ArrayRef.h"
+
+#include "flang/Frontend/CompilerInstance.h"
+#include "flang/Frontend/CompilerInvocation.h"
+#include "flang/Frontend/TextDiagnosticBuffer.h"
+#include "flang/FrontendTool/Utils.h"
+#include "clang/Driver/DriverDiagnostic.h"
+#include "llvm/Option/Arg.h"
+#include "llvm/Option/ArgList.h"
+#include "llvm/Option/OptTable.h"
+#include "llvm/Support/TargetSelect.h"
+
 #include "FlangTidyContext.h"
 
 LLVM_INSTANTIATE_REGISTRY(Fortran::tidy::FlangTidyModuleRegistry)
@@ -62,81 +75,115 @@ MultiplexVisitorFactory::MultiplexVisitorFactory()
   }
 }
 
+/*
 static std::string getIntrinsicDir(const char *argv) {
-  // TODO: Find a system independent API
   llvm::SmallString<128> driverPath;
   driverPath.assign(llvm::sys::fs::getMainExecutable(argv, nullptr));
   llvm::sys::path::remove_filename(driverPath);
   driverPath.append("/../include/flang/");
   return std::string(driverPath);
 }
+*/
 
 int runFlangTidy(const FlangTidyOptions &options) {
-  parser::AllSources allSources;
-  parser::AllCookedSources allCookedSources{allSources};
-  parser::Parsing parsing{allCookedSources};
-  parser::Options parserOptions;
+  auto flang = std::make_unique<Fortran::frontend::CompilerInstance>();
 
-  parserOptions.intrinsicModuleDirectories.emplace_back(
-      getIntrinsicDir(options.argv[0]));
-
-  if (options.enableAllWarnings) {
-    parserOptions.features.WarnOnAllNonstandard();
-    parserOptions.expandIncludeLinesInPreprocessedOutput = false;
-  }
-
-  // process files
-  parsing.Prescan(options.fileName, parserOptions);
-  parsing.Parse(llvm::outs());
-
-  if (parsing.messages().AnyFatalError()) {
-    parsing.messages().Emit(llvm::errs(), allCookedSources);
+  // create diagnostics engine
+  flang->createDiagnostics();
+  if (!flang->hasDiagnostics()) {
+    llvm::errs() << "Failed to create diagnostics engine\n";
     return 1;
   }
 
-  // get parse tree
-  parser::Program &program{*parsing.parseTree()};
-  common::IntrinsicTypeDefaultKinds defaultKinds;
-  common::LanguageFeatureControl languageFeatures;
-  common::LangOptions langOptions;
-  semantics::SemanticsContext semanticsContext{defaultKinds, languageFeatures,
-                                               langOptions, allCookedSources};
-  semantics::Semantics semantics{semanticsContext, program};
+  // convert the filename to StringRef
+  llvm::StringRef fileName(options.fileName);
 
-  semanticsContext.set_intrinsicModuleDirectories(
-      parserOptions.intrinsicModuleDirectories);
+  // pass the files
+  flang->getFrontendOpts().inputs.emplace_back(frontend::FrontendInputFile{
+    fileName, frontend::Language::Fortran});
 
-  // semantic analysis
-  if (!semantics.Perform()) {
-    llvm::errs() << "Semantic analysis failed\n";
+  frontend::TextDiagnosticBuffer *diagsBuffer = new frontend::TextDiagnosticBuffer;
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> diagID(
+    new clang::DiagnosticIDs());
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagOpts =
+      new clang::DiagnosticOptions();
+  clang::DiagnosticsEngine diags(diagID, &*diagOpts, diagsBuffer);
+
+  // convert the options to a format that can be passed to the compiler invocation
+  llvm::ArrayRef<const char *> argv;
+  std::vector<std::string> args = options.extraArgs;
+
+  // turn extra args into a format that can be passed to the compiler invocation
+  std::vector<const char *> cstrArgs;
+  // add input files
+  cstrArgs.push_back(options.fileName.c_str());
+
+  for (const auto &arg : args) {
+    cstrArgs.push_back(arg.c_str());
   }
 
-  // is it fatal?
-  if (semantics.AnyFatalError()) {
-    semantics.EmitMessages(llvm::errs());
+  argv = llvm::ArrayRef<const char *>(cstrArgs);
+  flang->getFrontendOpts().programAction = frontend::ParseSyntaxOnly;
+
+  // parse arguments
+  const char *argv0 = options.argv[0];
+  bool success = Fortran::frontend::CompilerInvocation::createFromArgs(
+      flang->getInvocation(), argv, diags, argv0);
+    
+  // initialize targets
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllAsmPrinters();
+
+  // emit diagnostics
+  diagsBuffer->flushDiagnostics(flang->getDiagnostics());
+
+  if (!success) {
+    llvm::errs() << "Failed to parse arguments\n";
     return 1;
   }
 
-  // -dump-parse-tree
+  // run the compiler instance
+  if (!Fortran::frontend::executeCompilerInvocation(flang.get())) {
+    llvm::errs() << "Failed to execute compiler invocation\n";
+    return 1;
+  }
+
+  // handle help and version flags
+  if (flang->getFrontendOpts().showHelp ||
+      flang->getFrontendOpts().showVersion) {
+    return 0;
+  }
+
+  // get the parse tree
+  auto &parsing = flang->getParsing();
+  auto &parseTree = parsing.parseTree();
+  if (!parseTree) {
+    llvm::errs() << "Failed to retrieve the parse tree\n";
+    return 1;
+  }
+
+  auto &semantics = flang->getSemantics();
+  auto &semanticsContext = semantics.context();
+
   if (options.dumpParseTree) {
-    parser::DumpTree(llvm::outs(), program);
+    Fortran::parser::DumpTree(llvm::outs(), *parseTree);
   }
 
   FlangTidyContext context{options, &semanticsContext};
 
   MultiplexVisitorFactory visitorFactory{};
-
   MultiplexVisitor visitor{semanticsContext};
-
   auto checks = visitorFactory.CheckFactories->createChecks(&context);
 
   for (auto &&check : checks) {
     visitor.AddChecker(std::move(check));
   }
 
-  visitor.Walk(program);
+  visitor.Walk(*parseTree);  
 
   semantics.EmitMessages(llvm::errs());
+  //diagsBuffer->flushDiagnostics(flang->getDiagnostics());
 
   return 0;
 }

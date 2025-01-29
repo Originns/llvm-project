@@ -27,10 +27,6 @@ llvm::cl::opt<bool> DumpParseTree("dump-parse-tree",
                                   llvm::cl::desc("Dump parse tree"),
                                   llvm::cl::init(false));
 
-llvm::cl::opt<bool> EnableAllWarnings("Wall",
-                                      llvm::cl::desc("Enable all warnings"),
-                                      llvm::cl::init(false));
-
 int flangTidyMain(int argc, const char **argv) {
   llvm::InitLLVM X(argc, argv);
 
@@ -65,7 +61,6 @@ int flangTidyMain(int argc, const char **argv) {
   }
 
   options.dumpParseTree = DumpParseTree;
-  options.enableAllWarnings = EnableAllWarnings;
   options.extraArgs.assign(ExtraArgs.begin(), ExtraArgs.end());
 
   // run flang-tidy
