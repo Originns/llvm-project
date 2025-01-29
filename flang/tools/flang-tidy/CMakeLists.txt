@@ -41,9 +41,3 @@ target_link_libraries(flang-tidy
   flangFrontend
   flangFrontendTool
   )
-
-clang_target_link_libraries(flang
-  PRIVATE
-  clangDriver
-  clangBasic
-)
