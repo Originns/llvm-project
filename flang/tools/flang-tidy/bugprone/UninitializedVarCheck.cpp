@@ -75,7 +75,7 @@ void UninitializedVarCheck::Leave(const parser::AllocateStmt &allocateStmt) {
   // for each allocation, get the AllocateObject
   for (const auto &allocation : allocations) {
     const auto &allocateObject = std::get<parser::AllocateObject>(allocation.t);
-    const auto *expr = semantics::GetExpr(allocateObject);
+    const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), allocateObject);
 
     // extract the first symbol from the AllocateObject
     if (expr) {
@@ -131,7 +131,7 @@ void UninitializedVarCheck::Leave(const parser::CallStmt &callStmt) {
 
 using namespace parser::literals;
 void UninitializedVarCheck::Enter(const parser::Expr &e) {
-  const auto *expr = semantics::GetExpr(e);
+  const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), e);
   if (!expr) {
     return;
   }
