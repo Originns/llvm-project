@@ -29,7 +29,7 @@ extern int flangTidyMain(int argc, const char **argv) {
       argc, argv, "flang-tidy: A Fortran source analysis tool\n");
 
   if (SourcePaths.empty()) {
-    llvm::errs() << "Error: No input file specified. Use -file <filename>.\n";
+    llvm::errs() << "Error: no input files specified.\n";
     return 1;
   }
 

@@ -7,8 +7,6 @@
 #include <functional>
 #include <memory>
 
-#include "llvm/Support/raw_ostream.h"
-
 namespace Fortran::tidy {
 
 class FlangTidyCheck;

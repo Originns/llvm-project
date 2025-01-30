@@ -13,7 +13,6 @@
 #include "FlangTidyModule.h"
 #include "FlangTidyCheck.h"
 #include "FlangTidyContext.h"
-#include <cstdint>
 
 namespace Fortran::tidy {
 
