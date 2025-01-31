@@ -199,6 +199,10 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       if (semantics::IsInitialized(symbol, true, true, true))
         continue;
 
+      // is it a parameter?
+      if (symbol->attrs().test(semantics::Attr::PARAMETER))
+        continue;
+
       // is the symbol allocatable
       if (symbol->attrs().test(semantics::Attr::ALLOCATABLE)) {
         if (allocatedVars_.find(symbol) == allocatedVars_.end()) {
