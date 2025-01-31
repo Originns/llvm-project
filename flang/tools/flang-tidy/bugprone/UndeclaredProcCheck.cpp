@@ -1,4 +1,5 @@
 #include "UndeclaredProcCheck.h"
+#include "flang/Semantics/attr.h"
 #include "flang/Semantics/symbol.h"
 
 namespace Fortran::tidy::bugprone {
@@ -13,13 +14,13 @@ static void CheckForUndeclaredProcedures(semantics::SemanticsContext &context,
     const semantics::Symbol &symbol = *pair.second;
     if (auto *details{symbol.detailsIf<semantics::ProcEntityDetails>()};
         details) {
-      // Unknown global external procedure
-      if (symbol.owner().IsGlobal()) {
+      if (symbol.owner().IsGlobal()) { // unknown global procedure
         context.Say(symbol.name(),
                     "Implicit declaration of procedure '%s'"_warn_en_US,
                     symbol.name());
-      } else if (!details->HasExplicitInterface()) { // Procedure with no
-                                                     // explicit interface
+      } else if (!details->HasExplicitInterface() && // no explicit interface
+                 !symbol.attrs().test(
+                     semantics::Attr::INTRINSIC)) { // not an intrinsic
         context.Say(symbol.name(),
                     "Procedure '%s' has no explicit interface"_warn_en_US,
                     symbol.name());
