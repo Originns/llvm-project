@@ -22,7 +22,8 @@ public:
   void Enter(const parser::DoConstruct &) override;
   void Leave(const parser::AllocateStmt &) override;
   void Leave(const parser::CommonStmt &) override;
-  void Leave(const parser::CallStmt &) override;
+  void Leave(const parser::WriteStmt &) override;
+  void Enter(const parser::CallStmt &) override;
   void Enter(const parser::Expr &) override;
 
 private:
