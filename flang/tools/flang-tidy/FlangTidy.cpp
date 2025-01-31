@@ -120,7 +120,6 @@ int runFlangTidy(const FlangTidyOptions &options) {
 
   // run the compiler instance
   if (!Fortran::frontend::executeCompilerInvocation(flang.get())) {
-    llvm::errs() << "Failed to execute compiler invocation\n";
     return 1;
   }
 
@@ -134,7 +133,7 @@ int runFlangTidy(const FlangTidyOptions &options) {
   auto &parsing = flang->getParsing();
   auto &parseTree = parsing.parseTree();
   if (!parseTree) {
-    llvm::errs() << "Failed to retrieve the parse tree\n";
+    diagsBuffer->flushDiagnostics(flang->getDiagnostics());
     return 1;
   }
 

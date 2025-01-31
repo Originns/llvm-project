@@ -75,7 +75,8 @@ void UninitializedVarCheck::Leave(const parser::AllocateStmt &allocateStmt) {
   // for each allocation, get the AllocateObject
   for (const auto &allocation : allocations) {
     const auto &allocateObject = std::get<parser::AllocateObject>(allocation.t);
-    const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), allocateObject);
+    const auto *expr =
+        semantics::GetExpr(context_->getSemanticsContext(), allocateObject);
 
     // extract the first symbol from the AllocateObject
     if (expr) {
@@ -108,7 +109,7 @@ void UninitializedVarCheck::Leave(const parser::CommonStmt &commonStmt) {
 }
 
 // check CallStmts
-void UninitializedVarCheck::Leave(const parser::CallStmt &callStmt) {
+void UninitializedVarCheck::Enter(const parser::CallStmt &callStmt) {
   const auto *procedureRef = callStmt.typedCall.get();
   if (procedureRef) {
     for (const auto &arg : procedureRef->arguments()) {
@@ -123,6 +124,21 @@ void UninitializedVarCheck::Leave(const parser::CallStmt &callStmt) {
             definedVars_.insert(*var);
             allocatedVars_.insert(*var);
           }
+        }
+      }
+    }
+  }
+}
+
+// check WriteStmts
+void UninitializedVarCheck::Leave(const parser::WriteStmt &writeStmt) {
+  if (writeStmt.iounit) {
+    if (const auto *var{std::get_if<parser::Variable>(&writeStmt.iounit->u)}) {
+      if (const auto *expr{
+              semantics::GetExpr(context_->getSemanticsContext(), *var)}) {
+        if (const auto *symbol{evaluate::UnwrapWholeSymbolDataRef(*expr)}) {
+          definedVars_.insert(*symbol);
+          allocatedVars_.insert(*symbol);
         }
       }
     }
@@ -190,6 +206,13 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
               e.source, "Variable '%s' may be unallocated"_warn_en_US,
               symbol->name());
         }
+      }
+
+      // is the symbol an associated entity
+      if (const auto *details =
+              symbol->detailsIf<semantics::AssocEntityDetails>();
+          details && details->expr()) {
+        continue;
       }
 
       if (definedVars_.find(symbol) == definedVars_.end()) {

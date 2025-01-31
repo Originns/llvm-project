@@ -27,15 +27,18 @@ public:
   virtual void Enter(const parser::DoConstruct &) {}
   virtual void Leave(const parser::AllocateStmt &) {}
   virtual void Leave(const parser::CommonStmt &) {}
-  virtual void Leave(const parser::CallStmt &) {}
+  virtual void Leave(const parser::WriteStmt &) {}
+  virtual void Enter(const parser::CallStmt &) {}
   virtual void Enter(const parser::Expr &) {}
   virtual void Enter(const parser::AssignStmt &) {}
   virtual void Enter(const parser::AssignedGotoStmt &) {}
   virtual void Enter(const parser::BackspaceStmt &) {}
   virtual void Enter(const parser::CommonStmt &) {}
   virtual void Enter(const parser::DataStmt &) {}
+
 protected:
   bool fixAvailable_{false};
+
 private:
   llvm::StringRef name_;
 };
