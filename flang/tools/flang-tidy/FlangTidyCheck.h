@@ -35,6 +35,10 @@ public:
   virtual void Enter(const parser::BackspaceStmt &) {}
   virtual void Enter(const parser::CommonStmt &) {}
   virtual void Enter(const parser::DataStmt &) {}
+  virtual void Enter(const parser::OutputImpliedDo &) {};
+  virtual void Enter(const parser::InputImpliedDo &) {};
+  virtual void Enter(const parser::AcImpliedDo &) {};
+  virtual void Enter(const parser::DataImpliedDo &) {};
 
 protected:
   bool fixAvailable_{false};

@@ -19,8 +19,12 @@ public:
   virtual ~UninitializedVarCheck() = default;
   void Leave(const parser::AssignmentStmt &) override;
   void Leave(const parser::PointerAssignmentStmt &) override;
-  void Enter(const parser::DoConstruct &) override;
   void Leave(const parser::AllocateStmt &) override;
+  void Enter(const parser::DoConstruct &) override;
+  void Enter(const parser::OutputImpliedDo &) override;
+  void Enter(const parser::InputImpliedDo &) override;
+  void Enter(const parser::AcImpliedDo &) override;
+  void Enter(const parser::DataImpliedDo &) override;
   void Leave(const parser::CommonStmt &) override;
   void Leave(const parser::WriteStmt &) override;
   void Enter(const parser::CallStmt &) override;
