@@ -4,6 +4,7 @@
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
 #include "flang/Parser/parse-tree.h"
+#include "flang/Parser/tools.h"
 #include "flang/Semantics/attr.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
@@ -26,16 +27,30 @@ void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
     if (const semantics::Symbol * base{evaluate::GetFirstSymbol(*lhs)}; base) {
       // initialize the base symbol
       definedVars_.insert(*base);
+
       // if it has attr allocatable and is not part of our allocated vars and
       // is from the same scope, warn
-      if (base->attrs().test(semantics::Attr::ALLOCATABLE) &&
-          allocatedVars_.find(*base) == allocatedVars_.end() &&
-          base->owner() ==
-              context_->getSemanticsContext().FindScope(
-                  context_->getSemanticsContext().location().value())) {
-        context_->getSemanticsContext().Say(
-            var.GetSource(), "Variable '%s' may be unallocated"_warn_en_US,
-            base->name().ToString());
+      if (base->attrs().test(semantics::Attr::ALLOCATABLE)) {
+
+        // ignore deferred length character allocatables
+        const auto &ultimate{ResolveAssociations(*base)};
+        if (const semantics::DeclTypeSpec * type{ultimate.GetType()};
+            type &&
+            type->category() == semantics::DeclTypeSpec::Category::Character &&
+            type->characterTypeSpec().length().isDeferred() &&
+            semantics::IsAllocatable(ultimate) && ultimate.Rank() == 0) {
+          allocatedVars_.insert(*base);
+          return;
+        }
+
+        if (allocatedVars_.find(*base) == allocatedVars_.end() &&
+            base->owner() ==
+                context_->getSemanticsContext().FindScope(
+                    context_->getSemanticsContext().location().value())) {
+          context_->getSemanticsContext().Say(
+              var.GetSource(), "Variable '%s' may be unallocated"_warn_en_US,
+              base->name().ToString());
+        }
       }
     }
   }
@@ -53,7 +68,38 @@ void UninitializedVarCheck::Leave(
   }
 }
 
-// check DoConstructs
+void UninitializedVarCheck::Enter(
+    const parser::OutputImpliedDo &outputImpliedDo) {
+  const auto &bounds = std::get<parser::IoImpliedDoControl>(outputImpliedDo.t);
+  if (const auto *symbol{bounds.name.thing.thing.symbol}) {
+    definedVars_.insert(*symbol);
+  }
+}
+
+void UninitializedVarCheck::Enter(
+    const parser::InputImpliedDo &inputImpliedDo) {
+  const auto &bounds = std::get<parser::IoImpliedDoControl>(inputImpliedDo.t);
+  if (const auto *symbol{bounds.name.thing.thing.symbol}) {
+    definedVars_.insert(*symbol);
+  }
+}
+
+void UninitializedVarCheck::Enter(const parser::AcImpliedDo &acImpliedDo) {
+  const auto &doControl = std::get<parser::AcImpliedDoControl>(acImpliedDo.t);
+  const auto &bounds =
+      std::get<parser::AcImpliedDoControl::Bounds>(doControl.t);
+  if (const auto *symbol{bounds.name.thing.thing.symbol}) {
+    definedVars_.insert(*symbol);
+  }
+}
+
+void UninitializedVarCheck::Enter(const parser::DataImpliedDo &dataImpliedDo) {
+  const auto &bounds = std::get<parser::DataImpliedDo::Bounds>(dataImpliedDo.t);
+  if (const auto *symbol{bounds.name.thing.thing.symbol}) {
+    definedVars_.insert(*symbol);
+  }
+}
+
 void UninitializedVarCheck::Enter(const parser::DoConstruct &doConstruct) {
   if (doConstruct.GetLoopControl()) {
     if (const auto *bounds{std::get_if<parser::LoopControl::Bounds>(
@@ -116,11 +162,14 @@ void UninitializedVarCheck::Enter(const parser::CallStmt &callStmt) {
       if (!arg)
         continue;
       if (const semantics::SomeExpr * argExpr{arg->UnwrapExpr()}) {
-        if (const semantics::Symbol *
-            var{evaluate::UnwrapWholeSymbolDataRef(*argExpr)}) {
+        // is the expression a whole symbol data ref or a base symbol data ref
+        const auto *var{evaluate::UnwrapWholeSymbolDataRef(*argExpr)};
+        if (!var) {
+          var = evaluate::GetFirstSymbol(*argExpr);
+        }
+        if (var) {
           common::Intent intent{arg->dummyIntent()};
-          if (intent == common::Intent::InOut ||
-              intent == common::Intent::Out) {
+          if (intent == common::Intent::Out) {
             definedVars_.insert(*var);
             allocatedVars_.insert(*var);
           }
