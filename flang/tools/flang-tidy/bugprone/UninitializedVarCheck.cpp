@@ -4,7 +4,6 @@
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
 #include "flang/Parser/parse-tree.h"
-#include "flang/Parser/tools.h"
 #include "flang/Semantics/attr.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
@@ -169,7 +168,9 @@ void UninitializedVarCheck::Enter(const parser::CallStmt &callStmt) {
         }
         if (var) {
           common::Intent intent{arg->dummyIntent()};
-          if (intent == common::Intent::Out) {
+          if (intent == common::Intent::Out ||
+              intent == common::Intent::InOut) { /* TODO: set InOut when leaving
+                                                    CallStmt  */
             definedVars_.insert(*var);
             allocatedVars_.insert(*var);
           }
@@ -210,8 +211,9 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
         if (const semantics::Symbol *
             var{evaluate::UnwrapWholeSymbolDataRef(*argExpr)}) {
           common::Intent intent{argRef->dummyIntent()};
-          if (intent == common::Intent::InOut ||
-              intent == common::Intent::Out) {
+          if (intent == common::Intent::Out ||
+              intent == common::Intent::InOut) { /* TODO: set InOut when leaving
+                                                    func ref*/
             definedVars_.insert(*var);
             allocatedVars_.insert(*var);
           }
