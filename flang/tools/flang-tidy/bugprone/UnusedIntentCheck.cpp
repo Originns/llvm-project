@@ -6,6 +6,11 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
+
+// a map mapping a symbol to its ProcBindingDetails
+static std::unordered_map<const semantics::Symbol *, const semantics::Symbol *>
+    procBindingDetailsSymbolsMap;
+
 static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
                                     const semantics::Scope &scope) {
   if (scope.IsModuleFile())
@@ -22,6 +27,40 @@ static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
     // is the symbol a function argument
     if (const auto *details{symbol.detailsIf<semantics::ObjectEntityDetails>()};
         details && details->isDummy()) {
+      // TODO: check if we are used in a derived procedure (procedure => A_f)
+
+      const auto &owningProcScope = symbol.owner();
+      // get the class of the symbol
+
+      const auto &owningProc = owningProcScope.symbol();
+
+      // if the owning proc is a derived type ignore it
+      /*
+      maybe check if its actually overridden
+      bool isInaccessibleDeferred{false};
+      const auto *overridden{semantics::FindOverriddenBinding(
+          *owningProc, isInaccessibleDeferred)};
+      if (overridden) {
+        llvm::outs() << "Overridden\n";
+        return;
+      }
+      */
+      if (procBindingDetailsSymbolsMap.find(owningProc) !=
+          procBindingDetailsSymbolsMap.end()) {
+        continue;
+        /* TODO: this
+        const auto *sym = procBindingDetailsSymbolsMap.at(owningProc);
+        bool isInaccessibleDeferred{false};
+        const auto *overridden{
+            semantics::FindOverriddenBinding(*sym, isInaccessibleDeferred)};
+        if (overridden) {
+          llvm::outs() << "method " << owningProc->name()
+                       << " is overridden by " << overridden->name() << "\n";
+          continue;
+        }
+        */
+      }
+
       if (!WasDefined(symbol) && semantics::IsIntentInOut(symbol)) {
         context.Say(
             symbol.name(),
@@ -44,9 +83,29 @@ static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
   }
 }
 
+static void MakeProcBindingSymbolSet(semantics::SemanticsContext &context,
+                                     const semantics::Scope &scope) {
+  for (const auto &pair : scope) {
+    const semantics::Symbol &symbol = *pair.second;
+    if (auto *details{symbol.detailsIf<semantics::ProcBindingDetails>()}) {
+      procBindingDetailsSymbolsMap[&details->symbol()] = &symbol;
+    }
+  }
+
+  for (const semantics::Scope &child : scope.children()) {
+    MakeProcBindingSymbolSet(context, child);
+  }
+}
+
 UnusedIntentCheck::UnusedIntentCheck(llvm::StringRef name,
                                      FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {
+
+  // go through all scopes, check if they own a derived type with
+  // ProcBindingDetails and make a list of those
+  MakeProcBindingSymbolSet(context_->getSemanticsContext(),
+                           context_->getSemanticsContext().globalScope());
+
   CheckUnusedIntentHelper(context_->getSemanticsContext(),
                           context_->getSemanticsContext().globalScope());
 }

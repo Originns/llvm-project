@@ -6,6 +6,7 @@
 #include "flang/Frontend/CompilerInstance.h"
 #include "flang/Frontend/CompilerInvocation.h"
 #include "flang/Frontend/TextDiagnosticBuffer.h"
+#include "flang/Frontend/TextDiagnosticPrinter.h"
 #include "flang/FrontendTool/Utils.h"
 #include "flang/Parser/parsing.h"
 #include "flang/Semantics/semantics.h"
@@ -14,6 +15,8 @@
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -152,7 +155,7 @@ int runFlangTidy(const FlangTidyOptions &options) {
 
   visitor.Walk(*parseTree);
 
-  semantics.EmitMessages(llvm::errs());
+  semantics.EmitMessages(llvm::outs());
   // diagsBuffer->flushDiagnostics(flang->getDiagnostics());
 
   return 0;
