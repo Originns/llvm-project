@@ -197,15 +197,13 @@ extern int flangTidyMain(int &argc, const char **argv) {
     }
   }
 
-  // find if there is an extra arg called --driver-mode=flang
-  // if so, remove all occurences
-  auto it = std::find(options.extraArgs.begin(), options.extraArgs.end(),
-                      "--driver-mode=flang");
-  while (it != options.extraArgs.end()) {
-    options.extraArgs.erase(it);
-    it = std::find(options.extraArgs.begin(), options.extraArgs.end(),
-                   "--driver-mode=flang");
-  }
+  // remove anything starting with --driver-mode
+  options.extraArgs.erase(
+      std::remove_if(options.extraArgs.begin(), options.extraArgs.end(),
+                     [](std::string const &arg) {
+                       return llvm::StringRef(arg).starts_with("--driver-mode");
+                     }),
+      options.extraArgs.end());
 
   return runFlangTidy(options);
 }
