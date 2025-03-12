@@ -19,26 +19,32 @@ public:
     }
     Context = ctx;
   }
+
   bool isCheckEnabled(const llvm::StringRef &CheckName) const {
-    if (Checks.count(CheckName) > 0) {
-      return true;
-    }
+    bool enabled = false;
 
-    if (Checks.count("*") > 0) {
-      return true;
-    }
-
-    for (const auto &EnabledPattern : Checks) {
-      if (EnabledPattern.ends_with(
-              "*")) { 
-        llvm::StringRef Prefix = EnabledPattern.drop_back(1);
-        if (CheckName.starts_with(Prefix)) {
-          return true;
+    for (const auto &Pattern : Checks) {
+      if (Pattern.starts_with("-")) {
+        llvm::StringRef DisablePrefix = Pattern.drop_front(1);
+        if (DisablePrefix.ends_with("*")) {
+          DisablePrefix = DisablePrefix.drop_back(1);
+          if (CheckName.starts_with(DisablePrefix)) {
+            enabled = false;
+          }
+        } else if (DisablePrefix == CheckName) {
+          enabled = false;
         }
+      } else if (Pattern.ends_with("*")) {
+        llvm::StringRef EnablePrefix = Pattern.drop_back(1);
+        if (CheckName.starts_with(EnablePrefix)) {
+          enabled = true;
+        }
+      } else if (Pattern == CheckName) {
+        enabled = true;
       }
     }
 
-    return false;
+    return enabled;
   }
 
   semantics::SemanticsContext &getSemanticsContext() const { return *Context; }
