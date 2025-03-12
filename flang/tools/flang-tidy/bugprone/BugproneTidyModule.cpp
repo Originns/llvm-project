@@ -4,6 +4,7 @@
 #include "ArithmeticIfStmtCheck.h"
 #include "ImplicitDeclCheck.h"
 #include "PrecisionLossCheck.h"
+#include "SubprogramTrampolineCheck.h"
 #include "UndeclaredProcCheck.h"
 #include "UninitializedVarCheck.h"
 #include "UnusedIntentCheck.h"
@@ -21,6 +22,8 @@ public:
     CheckFactories.registerCheck<ImplicitDeclCheck>(
         "bugprone-implicit-declaration");
     CheckFactories.registerCheck<PrecisionLossCheck>("bugprone-precision-loss");
+    CheckFactories.registerCheck<SubprogramTrampolineCheck>(
+        "bugprone-subprogram-trampoline");
     CheckFactories.registerCheck<UndeclaredProcCheck>(
         "bugprone-undeclared-procedure");
     CheckFactories.registerCheck<UninitializedVarCheck>(

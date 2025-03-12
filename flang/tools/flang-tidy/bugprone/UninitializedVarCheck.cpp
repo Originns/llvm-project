@@ -13,6 +13,7 @@
 
 namespace Fortran::tidy::bugprone {
 
+using namespace parser::literals;
 UninitializedVarCheck::UninitializedVarCheck(llvm::StringRef name,
                                              FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
@@ -195,7 +196,6 @@ void UninitializedVarCheck::Leave(const parser::WriteStmt &writeStmt) {
   }
 }
 
-using namespace parser::literals;
 void UninitializedVarCheck::Enter(const parser::Expr &e) {
   const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), e);
   if (!expr) {
@@ -243,6 +243,17 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       if (const auto *details{
               symbol->detailsIf<semantics::ObjectEntityDetails>()};
           details && details->isDummy()) {
+        continue;
+      }
+
+      // if its an argument, extract the procedure ref
+      if (const auto *details{
+              symbol->detailsIf<semantics::ProcEntityDetails>()};
+          details) {
+      }
+
+      // if its a subprogram, skip it
+      if (symbol->has<semantics::SubprogramDetails>()) {
         continue;
       }
 

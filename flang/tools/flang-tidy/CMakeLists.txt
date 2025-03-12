@@ -15,6 +15,7 @@ add_flang_tool(flang-tidy
   bugprone/BugproneTidyModule.cpp
   bugprone/ImplicitDeclCheck.cpp
   bugprone/PrecisionLossCheck.cpp
+  bugprone/SubprogramTrampolineCheck.cpp
   bugprone/UndeclaredProcCheck.cpp
   bugprone/UninitializedVarCheck.cpp
   bugprone/UnusedIntentCheck.cpp
