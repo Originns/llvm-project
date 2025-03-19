@@ -14,6 +14,9 @@ add_flang_tool(flang-tidy
   bugprone/ArithmeticIfStmtCheck.cpp
   bugprone/BugproneTidyModule.cpp
   bugprone/ImplicitDeclCheck.cpp
+  bugprone/ImpliedSaveCheck.cpp
+  bugprone/MissingActionCheck.cpp
+  bugprone/MissingDefaultCheck.cpp
   bugprone/PrecisionLossCheck.cpp
   bugprone/SubprogramTrampolineCheck.cpp
   bugprone/UndeclaredProcCheck.cpp
@@ -21,10 +24,14 @@ add_flang_tool(flang-tidy
   bugprone/UnusedIntentCheck.cpp
   FlangTidy.cpp
   FlangTidyModule.cpp
+  misc/MiscTidyModule.cpp
+  misc/PureProcedureCheck.cpp
+  misc/UnusedUseCheck.cpp
   modernize/AvoidAssignStmt.cpp
   modernize/AvoidBackspaceStmt.cpp
   modernize/AvoidCommonBlocks.cpp
   modernize/AvoidDataConstructs.cpp
+  modernize/AvoidPauseStmt.cpp
   modernize/ModernizeTidyModule.cpp
   tool/FlangTidyMain.cpp
   tool/FlangTidyToolMain.cpp

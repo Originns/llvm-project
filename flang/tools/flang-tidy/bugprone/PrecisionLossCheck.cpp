@@ -1,9 +1,14 @@
 #include "PrecisionLossCheck.h"
 #include "flang/Common/Fortran.h"
+#include "flang/Evaluate/check-expression.h"
 #include "flang/Evaluate/expression.h"
+#include "flang/Evaluate/fold.h"
+#include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/type.h"
+#include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"
+#include <variant>
 
 namespace Fortran::tidy::bugprone {
 
@@ -11,10 +16,18 @@ PrecisionLossCheck::PrecisionLossCheck(llvm::StringRef name,
                                        FlangTidyContext *context)
     : FlangTidyCheck{name}, context_{context} {}
 
-static bool IsLossOfPrecision(evaluate::DynamicType lhs,
-                              evaluate::DynamicType rhs) {
-  auto lhsCat = lhs.category();
-  auto rhsCat = rhs.category();
+static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
+                              const semantics::SomeExpr *rhs,
+                              bool hasExplicitKind, bool isConstantReal) {
+
+  const auto &lhsType{lhs->GetType()};
+  const auto &rhsType{rhs->GetType()};
+
+  if (!lhsType || !rhsType)
+    return false;
+
+  auto lhsCat = lhsType->category();
+  auto rhsCat = lhsType->category();
 
   // ignore derived types
   if (lhsCat == common::TypeCategory::Derived ||
@@ -22,8 +35,8 @@ static bool IsLossOfPrecision(evaluate::DynamicType lhs,
     return false;
 
   // this will fail if we call this on a derived type
-  int lhsKind = lhs.kind();
-  int rhsKind = rhs.kind();
+  int lhsKind = lhsType->kind();
+  int rhsKind = rhsType->kind();
 
   // integer -> integer, real, complex
   // real -> integer, real, complex
@@ -31,6 +44,11 @@ static bool IsLossOfPrecision(evaluate::DynamicType lhs,
   //
   if (lhsCat == rhsCat && lhsKind < rhsKind)
     return true;
+
+  // is the rhs is a literal and lhs has larger kind than the rhs
+  if (isConstantReal && lhsKind > rhsKind && !hasExplicitKind) {
+    return true;
+  }
 
   // complex = real are basically real = real
   if (lhsCat == common::TypeCategory::Complex &&
@@ -74,17 +92,25 @@ void PrecisionLossCheck::Enter(const parser::AssignmentStmt &assignment) {
   if (!lhs || !rhs)
     return;
 
-  const auto &lhsType{lhs->GetType()};
-  const auto &rhsType{rhs->GetType()};
+  bool hasExplicitKind = false;
+  bool isConstantReal = false;
+  // if the expr is LiteralConstant, we can get the value
+  if (std::holds_alternative<parser::LiteralConstant>(expr.u)) {
+    const auto &literal = std::get<parser::LiteralConstant>(expr.u);
+    // if it holds a RealLiteralConstant, we can get the value
+    if (std::holds_alternative<parser::RealLiteralConstant>(literal.u)) {
+      const auto &realLiteral =
+          std::get<parser::RealLiteralConstant>(literal.u);
+      hasExplicitKind = realLiteral.kind.has_value();
+      isConstantReal = true;
+    }
+  }
 
-  if (!lhsType || !rhsType)
-    return;
-
-  if (IsLossOfPrecision(*lhsType, *rhsType)) {
+  if (IsLossOfPrecision(lhs, rhs, hasExplicitKind, isConstantReal)) {
     context_->getSemanticsContext().Say(
         context_->getSemanticsContext().location().value(),
         "Possible loss of precision in implicit conversion (%s to %s)"_warn_en_US,
-        rhsType->AsFortran(), lhsType->AsFortran());
+        rhs->GetType()->AsFortran(), lhs->GetType()->AsFortran());
   }
 }
 

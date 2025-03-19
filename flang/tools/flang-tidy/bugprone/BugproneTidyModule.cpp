@@ -3,6 +3,9 @@
 #include "ArithmeticGotoCheck.h"
 #include "ArithmeticIfStmtCheck.h"
 #include "ImplicitDeclCheck.h"
+#include "ImpliedSaveCheck.h"
+#include "MissingActionCheck.h"
+#include "MissingDefaultCheck.h"
 #include "PrecisionLossCheck.h"
 #include "SubprogramTrampolineCheck.h"
 #include "UndeclaredProcCheck.h"
@@ -21,6 +24,11 @@ public:
         "bugprone-arithmetic-if");
     CheckFactories.registerCheck<ImplicitDeclCheck>(
         "bugprone-implicit-declaration");
+    CheckFactories.registerCheck<ImpliedSaveCheck>("bugprone-implied-save");
+    CheckFactories.registerCheck<MissingActionCheck>(
+        "bugprone-missing-action-stmt");
+    CheckFactories.registerCheck<MissingDefaultCheck>(
+        "bugprone-missing-default-case");
     CheckFactories.registerCheck<PrecisionLossCheck>("bugprone-precision-loss");
     CheckFactories.registerCheck<SubprogramTrampolineCheck>(
         "bugprone-subprogram-trampoline");

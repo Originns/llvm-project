@@ -68,6 +68,8 @@ void UninitializedVarCheck::Leave(
   }
 }
 
+// TODO: read stmts
+
 void UninitializedVarCheck::Enter(
     const parser::OutputImpliedDo &outputImpliedDo) {
   const auto &bounds = std::get<parser::IoImpliedDoControl>(outputImpliedDo.t);
