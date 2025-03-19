@@ -39,6 +39,22 @@ public:
   virtual void Enter(const parser::InputImpliedDo &) {};
   virtual void Enter(const parser::AcImpliedDo &) {};
   virtual void Enter(const parser::DataImpliedDo &) {};
+  virtual void Leave(const parser::BackspaceStmt &) {};
+  virtual void Leave(const parser::CloseStmt &) {};
+  virtual void Leave(const parser::EndfileStmt &) {};
+  virtual void Leave(const parser::FlushStmt &) {};
+  virtual void Leave(const parser::InquireStmt &) {};
+  virtual void Leave(const parser::OpenStmt &) {};
+  virtual void Leave(const parser::PrintStmt &) {};
+  virtual void Leave(const parser::ReadStmt &) {};
+  virtual void Leave(const parser::RewindStmt &) {};
+  virtual void Leave(const parser::WaitStmt &) {};
+  virtual void Leave(const parser::Name &) {};
+  virtual void Enter(const parser::ExecutableConstruct &) {};
+  virtual void Leave(const parser::Program &) {};
+  virtual void Leave(const parser::UseStmt &) {};
+  virtual void Enter(const parser::CaseConstruct &) {};
+  virtual void Enter(const parser::PauseStmt &) {};
 
 protected:
   bool fixAvailable_{false};
