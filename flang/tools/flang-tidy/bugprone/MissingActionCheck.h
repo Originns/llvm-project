@@ -3,6 +3,7 @@
 
 #include "../FlangTidyCheck.h"
 #include "FlangTidyContext.h"
+#include "flang/Parser/parse-tree.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::bugprone {
@@ -12,6 +13,7 @@ public:
   MissingActionCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~MissingActionCheck() = default;
 
+  void Leave(const parser::FileUnitNumber &) override;
   void Leave(const parser::OpenStmt &) override;
 
 private:

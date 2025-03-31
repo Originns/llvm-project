@@ -1,7 +1,6 @@
 #include "../FlangTidyModule.h"
 #include "../FlangTidyModuleRegistry.h"
 #include "PureProcedureCheck.h"
-#include "UnusedUseCheck.h"
 
 namespace Fortran::tidy {
 namespace misc {
@@ -22,6 +21,7 @@ static FlangTidyModuleRegistry::Add<misc::MiscModule>
 
 // This anchor is used to force the linker to link in the generated object file
 // and thus register the MiscModule.
+// NOLINTNEXTLINE
 volatile int MiscModuleAnchorSource = 0;
 
 } // namespace Fortran::tidy

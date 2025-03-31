@@ -49,12 +49,26 @@ public:
   virtual void Leave(const parser::ReadStmt &) {};
   virtual void Leave(const parser::RewindStmt &) {};
   virtual void Leave(const parser::WaitStmt &) {};
+  virtual void Leave(const parser::FileUnitNumber &) {};
   virtual void Leave(const parser::Name &) {};
   virtual void Enter(const parser::ExecutableConstruct &) {};
   virtual void Leave(const parser::Program &) {};
   virtual void Leave(const parser::UseStmt &) {};
   virtual void Enter(const parser::CaseConstruct &) {};
   virtual void Enter(const parser::PauseStmt &) {};
+  virtual void Enter(const parser::ForallStmt &) {};
+  virtual void Enter(const parser::ForallConstruct &) {};
+  virtual void Leave(const parser::DeallocateStmt &) {};
+
+  virtual void Leave(const parser::EventPostStmt &) {};
+  virtual void Leave(const parser::EventWaitStmt &) {};
+  virtual void Leave(const parser::LockStmt &) {};
+  virtual void Leave(const parser::UnlockStmt &) {};
+  virtual void Leave(const parser::SyncAllStmt &) {};
+  virtual void Leave(const parser::SyncImagesStmt &) {};
+  virtual void Leave(const parser::SyncMemoryStmt &) {};
+  virtual void Leave(const parser::SyncTeamStmt &) {};
+  virtual void Leave(const parser::FormTeamStmt &) {};
 
 protected:
   bool fixAvailable_{false};

@@ -34,6 +34,8 @@ static FlangTidyModuleRegistry::Add<modernize::ModernizeModule>
 
 // This anchor is used to force the linker to link in the generated object file
 // and thus register the ModernizeModule.
+
+// NOLINTNEXTLINE
 volatile int ModernizeModuleAnchorSource = 0;
 
 } // namespace Fortran::tidy

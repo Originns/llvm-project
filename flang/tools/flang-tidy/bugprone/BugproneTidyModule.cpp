@@ -48,6 +48,8 @@ static FlangTidyModuleRegistry::Add<bugprone::BugproneModule>
 
 // This anchor is used to force the linker to link in the generated object file
 // and thus register the BugproneModule.
+
+// NOLINTNEXTLINE
 volatile int BugproneModuleAnchorSource = 0;
 
 } // namespace Fortran::tidy

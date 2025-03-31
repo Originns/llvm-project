@@ -4,6 +4,7 @@
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
 #include "flang/Parser/parse-tree.h"
+#include "flang/Parser/source.h"
 #include "flang/Semantics/attr.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
@@ -68,7 +69,43 @@ void UninitializedVarCheck::Leave(
   }
 }
 
-// TODO: read stmts
+void UninitializedVarCheck::Leave(const parser::OpenStmt &openStmt) {
+  // if it has iostat, we can mark it as defined
+  const auto &connectSpec = openStmt.v;
+
+  // find ALL stat variables
+  const auto statVars = std::find_if(
+      connectSpec.begin(), connectSpec.end(), [](const auto &spec) {
+        return std::holds_alternative<parser::StatVariable>(spec.u);
+      });
+
+  // if we have a stat variable, mark it as defined
+  if (statVars != connectSpec.end()) {
+    const auto &statVar = std::get<parser::StatVariable>(statVars->u);
+    if (const auto *expr{
+            semantics::GetExpr(context_->getSemanticsContext(), statVar)}) {
+      if (const auto *symbol{evaluate::UnwrapWholeSymbolDataRef(*expr)}) {
+        definedVars_.insert(*symbol);
+      }
+    }
+  }
+}
+
+void UninitializedVarCheck::Leave(const parser::ReadStmt &readStmt) {
+  if (!readStmt.items.empty()) {
+    for (const auto &item : readStmt.items) {
+      if (const auto *var{std::get_if<parser::Variable>(&item.u)}) {
+        if (const auto *expr{
+                semantics::GetExpr(context_->getSemanticsContext(), *var)}) {
+          if (const auto *symbol{evaluate::UnwrapWholeSymbolDataRef(*expr)}) {
+            definedVars_.insert(*symbol);
+            allocatedVars_.insert(*symbol);
+          }
+        }
+      }
+    }
+  }
+}
 
 void UninitializedVarCheck::Enter(
     const parser::OutputImpliedDo &outputImpliedDo) {
@@ -214,8 +251,8 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
             var{evaluate::UnwrapWholeSymbolDataRef(*argExpr)}) {
           common::Intent intent{argRef->dummyIntent()};
           if (intent == common::Intent::Out ||
-              intent == common::Intent::InOut) { /* TODO: set InOut when leaving
-                                                    func ref*/
+              intent == common::Intent::InOut) { /* TODO: set InOut when
+                                                    leaving func ref*/
             definedVars_.insert(*var);
             allocatedVars_.insert(*var);
           }

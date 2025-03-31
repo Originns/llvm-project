@@ -1,9 +1,9 @@
 #include "FlangTidy.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
@@ -41,7 +41,7 @@ static llvm::cl::list<std::string>
               llvm::cl::ZeroOrMore,
               llvm::cl::sub(llvm::cl::SubCommand::getAll()));
 
-std::string GetFlangToolCommand() {
+static std::string GetFlangToolCommand() {
   static int Dummy;
   std::string FlangExecutable =
       llvm::sys::fs::getMainExecutable("flang", (void *)&Dummy);

@@ -5,7 +5,6 @@
 #include "MultiplexVisitor.h"
 #include "flang/Frontend/CompilerInstance.h"
 #include "flang/Frontend/CompilerInvocation.h"
-#include "flang/Frontend/TextDiagnosticBuffer.h"
 #include "flang/Frontend/TextDiagnosticPrinter.h"
 #include "flang/FrontendTool/Utils.h"
 #include "flang/Parser/parsing.h"
@@ -15,10 +14,10 @@
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include <clang/Basic/DiagnosticOptions.h>
+#include <memory>
 
 LLVM_INSTANTIATE_REGISTRY(Fortran::tidy::FlangTidyModuleRegistry)
 
@@ -76,13 +75,12 @@ int runFlangTidy(const FlangTidyOptions &options) {
     return 1;
   }
 
-  frontend::TextDiagnosticBuffer *diagsBuffer =
-      new frontend::TextDiagnosticBuffer;
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> diagID(
-      new clang::DiagnosticIDs());
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagOpts =
-      new clang::DiagnosticOptions();
-  clang::DiagnosticsEngine diags(diagID, &*diagOpts, diagsBuffer);
+  // create diagnostics buffer
+  auto diagsPrinter =
+      std::make_unique<Fortran::frontend::TextDiagnosticPrinter>(
+          llvm::outs(), &flang->getDiagnostics().getDiagnosticOptions());
+
+  flang->getDiagnostics().setClient(diagsPrinter.get(), false);
 
   // convert the options to a format that can be passed to the compiler
   // invocation
@@ -106,7 +104,7 @@ int runFlangTidy(const FlangTidyOptions &options) {
 
   // parse arguments
   bool success = Fortran::frontend::CompilerInvocation::createFromArgs(
-      flang->getInvocation(), argv, diags, options.argv0);
+      flang->getInvocation(), argv, flang->getDiagnostics(), options.argv0);
 
   // initialize targets
   llvm::InitializeAllTargets();
@@ -114,8 +112,6 @@ int runFlangTidy(const FlangTidyOptions &options) {
   llvm::InitializeAllAsmPrinters();
 
   // emit diagnostics
-  diagsBuffer->flushDiagnostics(flang->getDiagnostics());
-
   if (!success) {
     llvm::errs() << "Failed to parse arguments\n";
     return 1;
@@ -136,14 +132,14 @@ int runFlangTidy(const FlangTidyOptions &options) {
   auto &parsing = flang->getParsing();
   auto &parseTree = parsing.parseTree();
   if (!parseTree) {
-    diagsBuffer->flushDiagnostics(flang->getDiagnostics());
     return 1;
   }
 
   auto &semantics = flang->getSemantics();
   auto &semanticsContext = semantics.context();
 
-  FlangTidyContext context{options, &semanticsContext};
+  FlangTidyContext context{options, &semanticsContext,
+                           &flang->getDiagnostics()};
 
   MultiplexVisitorFactory visitorFactory{};
   MultiplexVisitor visitor{semanticsContext};
@@ -156,7 +152,6 @@ int runFlangTidy(const FlangTidyOptions &options) {
   visitor.Walk(*parseTree);
 
   semantics.EmitMessages(llvm::outs());
-  // diagsBuffer->flushDiagnostics(flang->getDiagnostics());
 
   return 0;
 }
