@@ -5,18 +5,24 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"
+#include "utils/SymbolUtils.h"
 
 namespace Fortran::tidy::misc {
 
 static void PopulateProcedures(
     const semantics::Scope &scope,
     std::unordered_map<const semantics::Symbol *, bool> &pureProcedures) {
+  if (scope.IsModuleFile())
+    return;
+
   for (const auto &pair : scope) {
     const semantics::Symbol &symbol{*pair.second};
-    if (semantics::IsProcedure(symbol)) {
-      pureProcedures[&symbol.GetUltimate()] = true;
+    const auto &ultimate = symbol.GetUltimate();
+    if (semantics::IsProcedure(symbol) && !utils::IsFromModFileSafe(ultimate)) {
+      pureProcedures[&ultimate] = true;
     }
   }
+
   for (const auto &child : scope.children()) {
     PopulateProcedures(child, pureProcedures);
   }
@@ -44,7 +50,11 @@ static bool CheckSymbolIsPure(const semantics::Symbol &symbol) {
 static void CheckPureSymbols(
     const semantics::Scope &scope,
     std::unordered_map<const semantics::Symbol *, bool> &pureProcedures) {
-  if (!scope.IsTopLevel() && !scope.IsModuleFile()) {
+
+  if (scope.IsModuleFile())
+    return;
+
+  if (!scope.IsTopLevel()) {
     for (const auto &pair : scope) {
       const semantics::Symbol &symbol{*pair.second};
       const semantics::Scope &scope{symbol.owner()};
@@ -231,7 +241,6 @@ void PureProcedureCheck::Leave(const parser::Program &program) {
     }
 
     // make sure its not being mapped to from procBindingDetailsSymbolsMap
-    // like if its the "second" of a pair
     bool cont = false;
     for (const auto &procBindingPair : procBindingDetailsSymbolsMap) {
       if (procBindingPair.second == pair.first) {
@@ -240,6 +249,10 @@ void PureProcedureCheck::Leave(const parser::Program &program) {
       }
     }
     if (cont) {
+      continue;
+    }
+
+    if (utils::IsFromModFileSafe(symbol)) {
       continue;
     }
 
@@ -253,7 +266,8 @@ void PureProcedureCheck::Leave(const parser::Program &program) {
         && procBindingDetailsSymbolsMap.find(pair.first) ==
                procBindingDetailsSymbolsMap.end()) {
       context_->getSemanticsContext().Say(
-          pair.first->name(), "Procedure '%s' could be PURE but is not"_en_US,
+          pair.first->name(),
+          "Procedure '%s' could be PURE but is not"_warn_en_US,
           pair.first->name());
     }
   }

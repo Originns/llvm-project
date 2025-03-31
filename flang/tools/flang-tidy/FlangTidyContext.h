@@ -4,6 +4,7 @@
 #include "flang/Semantics/semantics.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringRef.h"
+#include <clang/Basic/Diagnostic.h>
 
 #include "FlangTidyOptions.h"
 
@@ -13,11 +14,13 @@ namespace Fortran::tidy {
 class FlangTidyContext {
 public:
   FlangTidyContext(const FlangTidyOptions &options,
-                   semantics::SemanticsContext *ctx) {
+                   semantics::SemanticsContext *ctx,
+                   clang::DiagnosticsEngine *diags) {
     for (const auto &CheckName : options.enabledChecks) {
       Checks.insert(CheckName);
     }
     Context = ctx;
+    Diags = diags;
   }
 
   bool isCheckEnabled(const llvm::StringRef &CheckName) const {
@@ -52,6 +55,7 @@ public:
 public:
   llvm::SmallSet<llvm::StringRef, 16> Checks;
   semantics::SemanticsContext *Context;
+  clang::DiagnosticsEngine *Diags;
 };
 
 } // namespace Fortran::tidy

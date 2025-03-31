@@ -4,31 +4,13 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"
+#include "utils/SymbolUtils.h"
 
 namespace Fortran::tidy::bugprone {
-
-llvm::raw_ostream &operator<<(llvm::raw_ostream &o,
-                              const semantics::Symbol::Flags &flags) {
-  std::size_t n{flags.count()};
-  std::size_t seen{0};
-  for (std::size_t j{0}; seen < n; ++j) {
-    semantics::Symbol::Flag flag{static_cast<semantics::Symbol::Flag>(j)};
-    if (flags.test(flag)) {
-      if (seen > 0) {
-        o << ", ";
-      }
-      o << flag;
-      ++seen;
-    }
-  }
-  return o;
-}
 
 using namespace parser::literals;
 static void CheckForImpliedSAVEs(semantics::SemanticsContext &context,
                                  const semantics::Scope &scope) {
-
-  // does the symbol have the SAVE attribute?
   if (scope.IsModuleFile())
     return;
 
@@ -36,8 +18,14 @@ static void CheckForImpliedSAVEs(semantics::SemanticsContext &context,
     for (const auto &pair : scope) {
       const semantics::Symbol &symbol = *pair.second;
       const auto &ultimate = symbol.GetUltimate();
+
+      // if the symbol is a procedure, skip it
+      if (semantics::IsProcedure(symbol)) {
+        continue;
+      }
+
       // if the ultimate is from a mod file skip it too
-      if (ultimate.IsFromModFile()) {
+      if (utils::IsFromModFileSafe(ultimate)) {
         continue;
       }
 
