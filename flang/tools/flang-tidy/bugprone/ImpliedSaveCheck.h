@@ -12,6 +12,8 @@ public:
   ImpliedSaveCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~ImpliedSaveCheck() = default;
 
+  void Enter(const parser::EntityDecl &) override;
+
 private:
   FlangTidyContext *context_;
 };
