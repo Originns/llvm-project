@@ -59,6 +59,7 @@ public:
   virtual void Enter(const parser::ForallStmt &) {};
   virtual void Enter(const parser::ForallConstruct &) {};
   virtual void Leave(const parser::DeallocateStmt &) {};
+  virtual void Enter(const parser::EntityDecl &) {};
 
   virtual void Leave(const parser::EventPostStmt &) {};
   virtual void Leave(const parser::EventWaitStmt &) {};

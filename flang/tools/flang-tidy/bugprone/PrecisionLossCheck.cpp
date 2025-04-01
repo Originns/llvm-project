@@ -1,7 +1,6 @@
 #include "PrecisionLossCheck.h"
 #include "flang/Common/Fortran.h"
 #include "flang/Evaluate/expression.h"
-#include "flang/Evaluate/type.h"
 #include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"

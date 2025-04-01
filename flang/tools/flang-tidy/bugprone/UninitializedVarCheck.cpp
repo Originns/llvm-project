@@ -4,7 +4,6 @@
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
 #include "flang/Parser/parse-tree.h"
-#include "flang/Parser/source.h"
 #include "flang/Semantics/attr.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
@@ -25,7 +24,7 @@ void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
   const auto *lhs = semantics::GetExpr(context_->getSemanticsContext(), var);
   if (lhs) {
     // TODO: handle this better, ideally with a visitor(?)
-    if (const semantics::Symbol * base{evaluate::GetFirstSymbol(*lhs)}; base) {
+    if (const semantics::Symbol *base{evaluate::GetFirstSymbol(*lhs)}; base) {
       // initialize the base symbol
       definedVars_.insert(*base);
 
@@ -35,7 +34,7 @@ void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
 
         // ignore deferred length character allocatables
         const auto &ultimate{ResolveAssociations(*base)};
-        if (const semantics::DeclTypeSpec * type{ultimate.GetType()};
+        if (const semantics::DeclTypeSpec *type{ultimate.GetType()};
             type &&
             type->category() == semantics::DeclTypeSpec::Category::Character &&
             type->characterTypeSpec().length().isDeferred() &&
@@ -62,8 +61,8 @@ void UninitializedVarCheck::Leave(
     const parser::PointerAssignmentStmt &ptrAssignmentStmt) {
   const auto *typedAssignment = semantics::GetAssignment(ptrAssignmentStmt);
   if (typedAssignment) {
-    if (const semantics::Symbol *
-        base{evaluate::GetFirstSymbol(typedAssignment->lhs)}) {
+    if (const semantics::Symbol *base{
+            evaluate::GetFirstSymbol(typedAssignment->lhs)}) {
       definedVars_.insert(*base);
     }
   }
@@ -200,7 +199,7 @@ void UninitializedVarCheck::Enter(const parser::CallStmt &callStmt) {
     for (const auto &arg : procedureRef->arguments()) {
       if (!arg)
         continue;
-      if (const semantics::SomeExpr * argExpr{arg->UnwrapExpr()}) {
+      if (const semantics::SomeExpr *argExpr{arg->UnwrapExpr()}) {
         // is the expression a whole symbol data ref or a base symbol data ref
         const auto *var{evaluate::UnwrapWholeSymbolDataRef(*argExpr)};
         if (!var) {
@@ -236,6 +235,7 @@ void UninitializedVarCheck::Leave(const parser::WriteStmt &writeStmt) {
 }
 
 void UninitializedVarCheck::Enter(const parser::Expr &e) {
+  static bool isSizeOf = false;
   const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), e);
   if (!expr) {
     return;
@@ -244,11 +244,28 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
   // check FunctionRefs
   if (std::holds_alternative<common::Indirection<parser::FunctionReference>>(
           e.u)) {
+    // if the function is sizeof(), set a flag
+    const auto &functionRef =
+        std::get<common::Indirection<parser::FunctionReference>>(e.u);
+    const auto &procDesignator =
+        std::get<parser::ProcedureDesignator>(functionRef.value().v.t);
+
+    if (std::holds_alternative<parser::Name>(procDesignator.u)) {
+      const auto *procedureSym =
+          std::get<parser::Name>(procDesignator.u).symbol;
+      if (procedureSym &&
+          procedureSym->attrs().test(semantics::Attr::INTRINSIC) &&
+          (procedureSym->name() == "sizeof" ||
+           procedureSym->name() == "c_sizeof")) {
+        isSizeOf = true;
+      }
+    }
+
     evaluate::ActualArgumentSet argSet{evaluate::CollectActualArguments(*expr)};
     for (const evaluate::ActualArgumentRef &argRef : argSet) {
-      if (const semantics::SomeExpr * argExpr{argRef->UnwrapExpr()}) {
-        if (const semantics::Symbol *
-            var{evaluate::UnwrapWholeSymbolDataRef(*argExpr)}) {
+      if (const semantics::SomeExpr *argExpr{argRef->UnwrapExpr()}) {
+        if (const semantics::Symbol *var{
+                evaluate::UnwrapWholeSymbolDataRef(*argExpr)}) {
           common::Intent intent{argRef->dummyIntent()};
           if (intent == common::Intent::Out ||
               intent == common::Intent::InOut) { /* TODO: set InOut when
@@ -258,6 +275,10 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
           }
         }
       }
+    }
+
+    if (isSizeOf) {
+      return;
     }
   }
 
@@ -278,17 +299,12 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
         continue;
       }
 
-      // symbol should not be a dummy argument
+      // symbol should not be a dummy argument, or a reference to a slice of
+      // memory (e.g. array section)
       if (const auto *details{
               symbol->detailsIf<semantics::ObjectEntityDetails>()};
-          details && details->isDummy()) {
+          details && (details->isDummy())) {
         continue;
-      }
-
-      // if its an argument, extract the procedure ref
-      if (const auto *details{
-              symbol->detailsIf<semantics::ProcEntityDetails>()};
-          details) {
       }
 
       // if its a subprogram, skip it
@@ -320,13 +336,15 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
         continue;
       }
 
-      if (definedVars_.find(symbol) == definedVars_.end()) {
+      if (definedVars_.find(symbol) == definedVars_.end() && !isSizeOf) {
         context_->getSemanticsContext().Say(
             e.source, "Variable '%s' may be used uninitialized"_warn_en_US,
             symbol->name());
       }
     }
   }
+
+  isSizeOf = false;
 }
 
 } // namespace Fortran::tidy::bugprone
