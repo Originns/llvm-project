@@ -256,7 +256,8 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       if (procedureSym &&
           procedureSym->attrs().test(semantics::Attr::INTRINSIC) &&
           (procedureSym->name() == "sizeof" ||
-           procedureSym->name() == "c_sizeof")) {
+           procedureSym->name() == "c_sizeof" ||
+           procedureSym->name() == "allocated")) {
         isSizeOf = true;
       }
     }
