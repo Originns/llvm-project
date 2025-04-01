@@ -178,13 +178,6 @@ extern int flangTidyMain(int &argc, const char **argv) {
 
   if (!Compilations.empty()) {
     assert(options.sourcePaths.size() == 1);
-
-    llvm::outs() << "Compilations: ";
-    for (const auto &comp : Compilations) {
-      llvm::outs() << comp << " ";
-    }
-    llvm::outs() << "\n";
-
     options.extraArgs.insert(options.extraArgs.end(), Compilations.begin(),
                              Compilations.end());
   }
