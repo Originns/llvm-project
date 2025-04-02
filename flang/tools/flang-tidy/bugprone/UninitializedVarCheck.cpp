@@ -235,7 +235,7 @@ void UninitializedVarCheck::Leave(const parser::WriteStmt &writeStmt) {
 }
 
 void UninitializedVarCheck::Enter(const parser::Expr &e) {
-  static bool isSizeOf = false;
+  static bool shouldSkip = false;
   const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), e);
   if (!expr) {
     return;
@@ -257,8 +257,9 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
           procedureSym->attrs().test(semantics::Attr::INTRINSIC) &&
           (procedureSym->name() == "sizeof" ||
            procedureSym->name() == "c_sizeof" ||
-           procedureSym->name() == "allocated")) {
-        isSizeOf = true;
+           procedureSym->name() == "allocated" ||
+           procedureSym->name() == "associated")) {
+        shouldSkip = true;
       }
     }
 
@@ -278,7 +279,7 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       }
     }
 
-    if (isSizeOf) {
+    if (shouldSkip) {
       return;
     }
   }
@@ -337,7 +338,7 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
         continue;
       }
 
-      if (definedVars_.find(symbol) == definedVars_.end() && !isSizeOf) {
+      if (definedVars_.find(symbol) == definedVars_.end() && !shouldSkip) {
         context_->getSemanticsContext().Say(
             e.source, "Variable '%s' may be used uninitialized"_warn_en_US,
             symbol->name());
@@ -345,7 +346,7 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
     }
   }
 
-  isSizeOf = false;
+  shouldSkip = false;
 }
 
 } // namespace Fortran::tidy::bugprone
