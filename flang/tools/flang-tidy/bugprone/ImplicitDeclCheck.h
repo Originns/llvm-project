@@ -11,9 +11,8 @@ class ImplicitDeclCheck : public virtual FlangTidyCheck {
 public:
   ImplicitDeclCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~ImplicitDeclCheck() = default;
-
 private:
-  FlangTidyContext *context_;
+  void CheckForImplicitDeclarations(semantics::SemanticsContext &, const semantics::Scope &);
 };
 
 } // namespace Fortran::tidy::bugprone

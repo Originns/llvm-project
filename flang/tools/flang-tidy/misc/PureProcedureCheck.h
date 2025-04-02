@@ -12,7 +12,7 @@ class PureProcedureCheck : public virtual FlangTidyCheck {
 public:
   explicit PureProcedureCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~PureProcedureCheck() = default;
-  void SetUnpure();
+  void SetImpure();
 
   // I/O
   void Leave(const parser::BackspaceStmt &) override;
@@ -40,7 +40,6 @@ public:
   void Leave(const parser::Program &) override;
 
 private:
-  FlangTidyContext *context_;
   // map of all procedures and their pure status
   std::unordered_map<const semantics::Symbol *, bool> pureProcedures_;
 };

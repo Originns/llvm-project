@@ -11,9 +11,10 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-SubprogramTrampolineCheck::SubprogramTrampolineCheck(llvm::StringRef name,
-                                                     FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {}
+// SubprogramTrampolineCheck::SubprogramTrampolineCheck(llvm::StringRef name,
+//                                                      FlangTidyContext
+//                                                      *context)
+//     : FlangTidyCheck{name, context} {}
 
 void SubprogramTrampolineCheck::Enter(const parser::CallStmt &callStmt) {
   const auto *procedureRef = callStmt.typedCall.get();
@@ -21,13 +22,13 @@ void SubprogramTrampolineCheck::Enter(const parser::CallStmt &callStmt) {
     for (const auto &arg : procedureRef->arguments()) {
       if (!arg)
         continue;
-      if (const semantics::SomeExpr * argExpr{arg->UnwrapExpr()}) {
+      if (const semantics::SomeExpr *argExpr{arg->UnwrapExpr()}) {
         if (!evaluate::IsProcedureDesignator(*argExpr))
           continue;
         const auto proc = std::get<evaluate::ProcedureDesignator>(argExpr->u);
         if (const auto *symbol{proc.GetSymbol()}) {
           if (symbol->has<semantics::SubprogramDetails>()) {
-            context_->getSemanticsContext().Say(
+            context()->getSemanticsContext().Say(
                 callStmt.source,
                 "contained subprogram '%s' is passed as an argument"_warn_en_US,
                 symbol->name().ToString());
@@ -39,7 +40,7 @@ void SubprogramTrampolineCheck::Enter(const parser::CallStmt &callStmt) {
 }
 
 void SubprogramTrampolineCheck::Enter(const parser::Expr &e) {
-  const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), e);
+  const auto *expr = semantics::GetExpr(context()->getSemanticsContext(), e);
   if (!expr) {
     return;
   }
@@ -49,14 +50,15 @@ void SubprogramTrampolineCheck::Enter(const parser::Expr &e) {
           e.u)) {
     evaluate::ActualArgumentSet argSet{evaluate::CollectActualArguments(*expr)};
     for (const evaluate::ActualArgumentRef &argRef : argSet) {
-      if (const semantics::SomeExpr * argExpr{argRef->UnwrapExpr()}) {
+      if (const semantics::SomeExpr *argExpr{argRef->UnwrapExpr()}) {
         if (!evaluate::IsProcedureDesignator(*argExpr))
           continue;
         const auto proc = std::get<evaluate::ProcedureDesignator>(argExpr->u);
         if (const auto *symbol{proc.GetSymbol()}) {
           if (symbol->has<semantics::SubprogramDetails>()) {
-            context_->getSemanticsContext().Say(
-                e.source, "contained subprogram '%s' is passed as an argument"_warn_en_US,
+            Say(
+                e.source,
+                "contained subprogram '%s' is passed as an argument"_warn_en_US,
                 symbol->name().ToString());
           }
         }

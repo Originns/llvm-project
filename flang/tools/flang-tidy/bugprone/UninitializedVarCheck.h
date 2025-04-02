@@ -2,20 +2,18 @@
 #define FORTRAN_TIDY_SHORTCIRCUIT
 
 #include "FlangTidyCheck.h"
-#include "FlangTidyContext.h"
 #include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/semantics.h"
 #include "flang/Semantics/symbol.h"
-
-#include "../FlangTidyContext.h"
-#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::bugprone {
 
 class UninitializedVarCheck : public virtual FlangTidyCheck {
 public:
-  explicit UninitializedVarCheck(llvm::StringRef name,
-                                 FlangTidyContext *context);
+  using FlangTidyCheck::FlangTidyCheck;
+  // explicit UninitializedVarCheck(llvm::StringRef name,
+  //                                FlangTidyContext *context)
+  //     : FlangTidyCheck{name, context} {}
   virtual ~UninitializedVarCheck() = default;
   // Variable definitions via assignments
   void Leave(const parser::AssignmentStmt &) override;
@@ -56,7 +54,6 @@ public:
   void Enter(const parser::Expr &) override;
 
 private:
-  FlangTidyContext *context_;
   semantics::UnorderedSymbolSet definedVars_;
   semantics::UnorderedSymbolSet allocatedVars_;
 };

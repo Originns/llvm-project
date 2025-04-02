@@ -14,9 +14,6 @@ public:
 
   void Leave(const parser::UseStmt &) override;
   void Leave(const parser::Program &) override;
-
-private:
-  FlangTidyContext *context_;
 };
 
 } // namespace Fortran::tidy::misc

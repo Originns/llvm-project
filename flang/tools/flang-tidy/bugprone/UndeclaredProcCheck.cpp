@@ -5,7 +5,7 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-static void CheckForUndeclaredProcedures(semantics::SemanticsContext &context,
+void UndeclaredProcCheck::CheckForUndeclaredProcedures(semantics::SemanticsContext &context,
                                          const semantics::Scope &scope) {
   if (scope.IsModuleFile())
     return;
@@ -15,13 +15,13 @@ static void CheckForUndeclaredProcedures(semantics::SemanticsContext &context,
     if (auto *details{symbol.detailsIf<semantics::ProcEntityDetails>()};
         details) {
       if (symbol.owner().IsGlobal()) { // unknown global procedure
-        context.Say(symbol.name(),
+        Say(symbol.name(),
                     "Implicit declaration of procedure '%s'"_warn_en_US,
                     symbol.name());
       } else if (!details->HasExplicitInterface() && // no explicit interface
                  !symbol.attrs().test(
                      semantics::Attr::INTRINSIC)) { // not an intrinsic
-        context.Say(symbol.name(),
+        Say(symbol.name(),
                     "Procedure '%s' has no explicit interface"_warn_en_US,
                     symbol.name());
       }
@@ -35,9 +35,9 @@ static void CheckForUndeclaredProcedures(semantics::SemanticsContext &context,
 
 UndeclaredProcCheck::UndeclaredProcCheck(llvm::StringRef name,
                                          FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {
-  CheckForUndeclaredProcedures(context_->getSemanticsContext(),
-                               context_->getSemanticsContext().globalScope());
+    : FlangTidyCheck{name, context} {
+  CheckForUndeclaredProcedures(context->getSemanticsContext(),
+                               context->getSemanticsContext().globalScope());
 }
 
 } // namespace Fortran::tidy::bugprone

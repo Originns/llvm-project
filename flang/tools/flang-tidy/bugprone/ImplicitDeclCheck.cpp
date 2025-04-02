@@ -4,7 +4,7 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-static void CheckForImplicitDeclarations(semantics::SemanticsContext &context,
+void ImplicitDeclCheck::CheckForImplicitDeclarations(semantics::SemanticsContext &context,
                                          const semantics::Scope &scope) {
   if (scope.IsModuleFile())
     return;
@@ -14,7 +14,7 @@ static void CheckForImplicitDeclarations(semantics::SemanticsContext &context,
     if (symbol.test(semantics::Symbol::Flag::Implicit) &&
         !symbol.test(semantics::Symbol::Flag::Function) &&
         !symbol.test(semantics::Symbol::Flag::Subroutine)) {
-      context.Say(symbol.name(),
+      Say(symbol.name(),
                   "Implicit declaration of symbol '%s'"_warn_en_US,
                   symbol.name());
     }
@@ -27,9 +27,9 @@ static void CheckForImplicitDeclarations(semantics::SemanticsContext &context,
 
 ImplicitDeclCheck::ImplicitDeclCheck(llvm::StringRef name,
                                      FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {
-  CheckForImplicitDeclarations(context_->getSemanticsContext(),
-                               context_->getSemanticsContext().globalScope());
+    : FlangTidyCheck{name, context} {
+  CheckForImplicitDeclarations(context->getSemanticsContext(),
+                               context->getSemanticsContext().globalScope());
 }
 
 } // namespace Fortran::tidy::bugprone
