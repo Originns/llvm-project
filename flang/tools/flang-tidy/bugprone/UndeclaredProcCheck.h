@@ -11,9 +11,8 @@ class UndeclaredProcCheck : public virtual FlangTidyCheck {
 public:
   UndeclaredProcCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~UndeclaredProcCheck() = default;
-
 private:
-  FlangTidyContext *context_;
+  void CheckForUndeclaredProcedures(semantics::SemanticsContext &, const semantics::Scope &);
 };
 
 } // namespace Fortran::tidy::bugprone

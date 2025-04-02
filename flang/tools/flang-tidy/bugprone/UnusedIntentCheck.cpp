@@ -11,7 +11,7 @@ using namespace parser::literals;
 static std::unordered_map<const semantics::Symbol *, const semantics::Symbol *>
     procBindingDetailsSymbolsMap;
 
-static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
+void UnusedIntentCheck::CheckUnusedIntentHelper(semantics::SemanticsContext &context,
                                     const semantics::Scope &scope) {
   if (scope.IsModuleFile())
     return;
@@ -62,7 +62,7 @@ static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
       }
 
       if (!WasDefined(symbol) && semantics::IsIntentInOut(symbol)) {
-        context.Say(
+        Say(
             symbol.name(),
             "Dummy argument '%s' with intent(inout) is never written to, consider changing to intent(in)"_warn_en_US,
             symbol.name());
@@ -71,7 +71,7 @@ static void CheckUnusedIntentHelper(semantics::SemanticsContext &context,
                                   semantics::Attr::INTENT_INOUT,
                                   semantics::Attr::INTENT_OUT})) {
         // warn about dummy arguments without explicit intent
-        context.Say(symbol.name(),
+        Say(symbol.name(),
                     "Dummy argument '%s' has no explicit intent"_warn_en_US,
                     symbol.name());
       }
@@ -99,15 +99,15 @@ static void MakeProcBindingSymbolSet(semantics::SemanticsContext &context,
 
 UnusedIntentCheck::UnusedIntentCheck(llvm::StringRef name,
                                      FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {
+    : FlangTidyCheck{name, context} {
 
   // go through all scopes, check if they own a derived type with
   // ProcBindingDetails and make a list of those
-  MakeProcBindingSymbolSet(context_->getSemanticsContext(),
-                           context_->getSemanticsContext().globalScope());
+  MakeProcBindingSymbolSet(context->getSemanticsContext(),
+                           context->getSemanticsContext().globalScope());
 
-  CheckUnusedIntentHelper(context_->getSemanticsContext(),
-                          context_->getSemanticsContext().globalScope());
+  CheckUnusedIntentHelper(context->getSemanticsContext(),
+                          context->getSemanticsContext().globalScope());
 }
 
 } // namespace Fortran::tidy::bugprone

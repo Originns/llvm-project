@@ -5,13 +5,12 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"
-#include "utils/SymbolUtils.h"
 
 namespace Fortran::tidy::bugprone {
 
-ImpliedSaveCheck::ImpliedSaveCheck(llvm::StringRef name,
-                                   FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {}
+//ImpliedSaveCheck::ImpliedSaveCheck(llvm::StringRef name,
+//                                   FlangTidyContext *context)
+//    : FlangTidyCheck{name}, context(){context} {}
 
 using namespace parser::literals;
 void ImpliedSaveCheck::Enter(const parser::EntityDecl &entityDecl) {
@@ -19,9 +18,9 @@ void ImpliedSaveCheck::Enter(const parser::EntityDecl &entityDecl) {
   const auto *symbol = objectName.symbol;
   if (symbol && semantics::IsSaved(*symbol) &&
       !symbol->attrs().test(semantics::Attr::SAVE)) {
-    context_->getSemanticsContext().Say(
-        symbol->name(),
-        "Implicit SAVE on symbol '%s'"_warn_en_US, symbol->name());
+    Say(
+        symbol->name(), "Implicit SAVE on symbol '%s'"_warn_en_US,
+        symbol->name());
   }
 }
 

@@ -57,14 +57,14 @@ static void MakeUsedModulesList(const semantics::Scope &scope) {
 }
 
 UnusedUseCheck::UnusedUseCheck(llvm::StringRef name, FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {
-  MakeUsedModulesList(context_->getSemanticsContext().globalScope());
+    : FlangTidyCheck{name, context} {
+  MakeUsedModulesList(context->getSemanticsContext().globalScope());
 }
 
 using namespace parser::literals;
 void UnusedUseCheck::Leave(const parser::UseStmt &useStmt) {
   const auto *symbol{useStmt.moduleName.symbol};
-  if (!symbol || !context_->getSemanticsContext().location()) {
+  if (!symbol || !context()->getSemanticsContext().location()) {
     return;
   }
 
@@ -73,8 +73,8 @@ void UnusedUseCheck::Leave(const parser::UseStmt &useStmt) {
 
   // if the symbol is not in our list, warn
   if (usedModules.find(symbol) == usedModules.end()) {
-    context_->getSemanticsContext().Say(
-        *(context_->getSemanticsContext().location()),
+    Say(
+        *(context()->getSemanticsContext().location()),
         "use of module '%s' is not needed"_warn_en_US,
         symbol->name().ToString());
   }

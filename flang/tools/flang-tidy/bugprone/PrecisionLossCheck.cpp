@@ -9,9 +9,9 @@
 
 namespace Fortran::tidy::bugprone {
 
-PrecisionLossCheck::PrecisionLossCheck(llvm::StringRef name,
-                                       FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {}
+// PrecisionLossCheck::PrecisionLossCheck(llvm::StringRef name,
+//                                        FlangTidyContext *context)
+//     : FlangTidyCheck{name}, context(){context} {}
 
 static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
                               const semantics::SomeExpr *rhs,
@@ -79,123 +79,12 @@ static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
   return false;
 }
 
-bool shouldSuppressWarning(const parser::CharBlock &source,
-                           llvm::StringRef checkName,
-                           FlangTidyContext *context) {
-  if (source.empty()) {
-    return false;
-  }
-
-  // Get the provenance range for the source location
-  const auto &cookedSources = context->getSemanticsContext().allCookedSources();
-  const auto &allSources = cookedSources.allSources();
-
-  auto provenanceRange = cookedSources.GetProvenanceRange(source);
-  if (!provenanceRange) {
-    return false;
-  }
-
-  // Get the source position
-  auto srcPosition = allSources.GetSourcePosition(provenanceRange->start());
-  if (!srcPosition) {
-    return false;
-  }
-
-  int lineNum = srcPosition->line;
-
-  // Get the source file and line
-  std::size_t offset;
-  const auto *sourceFile =
-      allSources.GetSourceFile(provenanceRange->start(), &offset);
-  if (!sourceFile) {
-    return false;
-  }
-
-  // Extract the line content from the source file
-  auto checkForNoLint = [&](llvm::StringRef line) -> bool {
-    // Look for ! NOLINT or !NOLINT
-    auto commentPos = line.find('!');
-    if (commentPos == llvm::StringRef::npos) {
-      return false;
-    }
-
-    auto comment = line.substr(commentPos);
-
-    // Check for NOLINT
-    if (comment.contains("NOLINT") || comment.contains("nolint")) {
-      // If there's no specific check mentioned, it applies to all checks
-      if (!comment.contains("(")) {
-        return true;
-      }
-
-      // Check for specific check name in parentheses
-      if (comment.contains("(" + checkName.str() + ")") ||
-          comment.contains("(bugprone-uninitialized-var)")) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Try to get the current line
-  const auto &content = sourceFile->content();
-  std::size_t lineStart = 0;
-  std::size_t lineEnd = 0;
-  int currentLine = 1;
-
-  // Find the start of the current line
-  for (std::size_t i = 0; i < content.size(); i++) {
-    if (currentLine == lineNum) {
-      lineStart = i;
-
-      // Find the end of the line
-      while (i < content.size() && content[i] != '\n') {
-        i++;
-      }
-      lineEnd = i;
-
-      // Check if this line has a NOLINT comment
-      llvm::StringRef line(content.data() + lineStart, lineEnd - lineStart);
-      if (checkForNoLint(line)) {
-        return true;
-      }
-
-      // Check previous line if we can
-      if (lineNum > 1 && lineStart > 0) {
-        // Find the start of the previous line
-        std::size_t prevLineEnd = lineStart - 1;
-        std::size_t prevLineStart = prevLineEnd;
-
-        // Go back to find the start of the previous line
-        while (prevLineStart > 0 && content[prevLineStart - 1] != '\n') {
-          prevLineStart--;
-        }
-
-        llvm::StringRef prevLine(content.data() + prevLineStart,
-                                 prevLineEnd - prevLineStart);
-        if (checkForNoLint(prevLine)) {
-          return true;
-        }
-      }
-
-      // We've checked the current and previous lines, so we're done
-      break;
-    }
-
-    if (content[i] == '\n') {
-      currentLine++;
-    }
-  }
-
-  return false;
-}
-
 using namespace parser::literals;
 void PrecisionLossCheck::Enter(const parser::AssignmentStmt &assignment) {
   const auto &var{std::get<parser::Variable>(assignment.t)};
   const auto &expr{std::get<parser::Expr>(assignment.t)};
-  const auto *lhs{semantics::GetExpr(context_->getSemanticsContext(), var)};
-  const auto *rhs{semantics::GetExpr(context_->getSemanticsContext(), expr)};
+  const auto *lhs{semantics::GetExpr(context()->getSemanticsContext(), var)};
+  const auto *rhs{semantics::GetExpr(context()->getSemanticsContext(), expr)};
 
   if (!lhs || !rhs)
     return;
@@ -215,8 +104,7 @@ void PrecisionLossCheck::Enter(const parser::AssignmentStmt &assignment) {
   }
 
   if (IsLossOfPrecision(lhs, rhs, hasExplicitKind, isConstantReal)) {
-    context_->getSemanticsContext().Say(
-        context_->getSemanticsContext().location().value(),
+    Say(context()->getSemanticsContext().location().value(),
         "Possible loss of precision in implicit conversion (%s to %s) "_warn_en_US,
         rhs->GetType()->AsFortran(), lhs->GetType()->AsFortran());
   }

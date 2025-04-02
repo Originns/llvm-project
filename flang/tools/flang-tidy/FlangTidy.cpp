@@ -8,6 +8,7 @@
 #include "flang/Frontend/TextDiagnosticPrinter.h"
 #include "flang/FrontendTool/Utils.h"
 #include "flang/Parser/parsing.h"
+#include "flang/Parser/provenance.h"
 #include "flang/Semantics/semantics.h"
 #include "flang/Semantics/symbol.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -22,29 +23,6 @@
 LLVM_INSTANTIATE_REGISTRY(Fortran::tidy::FlangTidyModuleRegistry)
 
 namespace Fortran::tidy {
-
-/* Checks to implement
- * 1. Warn about implicit declarations(implicit none) (done)
- * 2. Warn about intent(inout) variables that are never assigned a value (done)
- * 3. Warn about using the same variable with different capitalization (?)
- * 4. Warn about using common blocks (done)
- * 5. Warn about arithmetic goto statements (done)
- * 6. Warn about non allocated allocatable local variables (done)
- * 7. Warn about uninitialized variables that are used (same scope) (done?)
- * 8. Warn about precision loss in assignments (done)
- * 9. Warn about implicit function declarations - require explicit interface
- * 10. Keep track of derived types in a tree for uninitialized variables
- *
- * Codee checks:
- * PWR001 Declare global variables as function parameters
- * PWR003	Explicitly declare pure functions
- * PWR007	Disable implicit declaration of variables (done)
- * PWR008	Declare the intent for each procedure parameter (done)
- * PWR012	Pass only required fields from derived type as parameters
- * PWR063	Avoid using legacy Fortran constructs (semi done)
- * PWR071	Prefer real(kind=kind_value) for declaring consistent floating
- * types
- */
 
 // Factory to populate MultiplexVisitor with all registered checks
 class MultiplexVisitorFactory {
@@ -62,6 +40,153 @@ MultiplexVisitorFactory::MultiplexVisitorFactory()
     // Instantiate the module
     std::unique_ptr<FlangTidyModule> module = entry.instantiate();
     module->addCheckFactories(*CheckFactories);
+  }
+}
+
+static std::string extractCheckName(const std::string &message) {
+  // Look for [check-name] pattern at the end of the message
+  size_t openBracket = message.rfind('[');
+  size_t closeBracket = message.rfind(']');
+
+  if (openBracket != std::string::npos && closeBracket != std::string::npos &&
+      openBracket < closeBracket && closeBracket == message.length() - 1) {
+    return message.substr(openBracket + 1, closeBracket - openBracket - 1);
+  }
+
+  return ""; // No check name found
+}
+
+static bool shouldSuppressWarning(const parser::ProvenanceRange &source,
+                                  const std::string &checkName,
+                                  FlangTidyContext *context) {
+  if (source.empty()) {
+    return false;
+  }
+
+  // Get the provenance range for the source location
+  const auto &cookedSources = context->getSemanticsContext().allCookedSources();
+  const auto &allSources = cookedSources.allSources();
+
+  // Get the source position
+  auto srcPosition = allSources.GetSourcePosition(source.start());
+  if (!srcPosition) {
+    return false;
+  }
+
+  int lineNum = srcPosition->line;
+
+  // Get the source file and line
+  std::size_t offset;
+  const auto *sourceFile = allSources.GetSourceFile(source.start(), &offset);
+  if (!sourceFile) {
+    return false;
+  }
+
+  // Extract the line content from the source file
+  auto checkForNoLint = [&](llvm::StringRef line) -> bool {
+    // Look for ! NOLINT or !NOLINT
+    auto commentPos = line.find('!');
+    if (commentPos == llvm::StringRef::npos) {
+      return false;
+    }
+
+    auto comment = line.substr(commentPos);
+
+    // Check for NOLINT
+    if (comment.contains("NOLINT") || comment.contains("nolint")) {
+      // If there's no specific check mentioned, it applies to all checks
+      if (!comment.contains("(")) {
+        return true;
+      }
+
+      // Check for specific check name in parentheses
+      if (comment.contains("(" + checkName + ")")) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Try to get the current line
+  const auto &content = sourceFile->content();
+  std::size_t lineStart = 0;
+  std::size_t lineEnd = 0;
+  int currentLine = 1;
+
+  // Find the start of the current line
+  for (std::size_t i = 0; i < content.size(); i++) {
+    if (currentLine == lineNum) {
+      lineStart = i;
+
+      // Find the end of the line
+      while (i < content.size() && content[i] != '\n') {
+        i++;
+      }
+      lineEnd = i;
+
+      // Check if this line has a NOLINT comment
+      llvm::StringRef line(content.data() + lineStart, lineEnd - lineStart);
+      if (checkForNoLint(line)) {
+        return true;
+      }
+
+      // Check previous line if we can
+      if (lineNum > 1 && lineStart > 0) {
+        // Find the start of the previous line
+        std::size_t prevLineEnd = lineStart - 1;
+        std::size_t prevLineStart = prevLineEnd;
+
+        // Go back to find the start of the previous line
+        while (prevLineStart > 0 && content[prevLineStart - 1] != '\n') {
+          prevLineStart--;
+        }
+
+        llvm::StringRef prevLine(content.data() + prevLineStart,
+                                 prevLineEnd - prevLineStart);
+        if (checkForNoLint(prevLine)) {
+          return true;
+        }
+      }
+
+      // We've checked the current and previous lines, so we're done
+      break;
+    }
+
+    if (content[i] == '\n') {
+      currentLine++;
+    }
+  }
+
+  return false;
+}
+
+static void filterMessagesWithNoLint(parser::Messages &messages,
+                                     FlangTidyContext *context) {
+  std::vector<parser::Message> filteredMessages;
+
+  const auto &cookedSources = context->getSemanticsContext().allCookedSources();
+
+  for (const auto &message : messages.messages()) {
+    // Extract the check name from the message text
+    std::string checkName = extractCheckName(message.ToString());
+
+    // Skip messages that should be suppressed
+    const auto &provenanceRange = message.GetProvenanceRange(cookedSources);
+
+    // get the charBlock
+    if (!checkName.empty() && provenanceRange &&
+        shouldSuppressWarning(provenanceRange.value(), checkName, context)) {
+      continue;
+    }
+
+    // Keep messages that aren't suppressed
+    filteredMessages.push_back(message);
+  }
+
+  // Replace the original messages with the filtered ones
+  messages.clear();
+  for (const auto &msg : filteredMessages) {
+    messages.Say(msg);
   }
 }
 
@@ -150,6 +275,9 @@ int runFlangTidy(const FlangTidyOptions &options) {
   }
 
   visitor.Walk(*parseTree);
+
+  auto &messages = context.Context->messages();
+  filterMessagesWithNoLint(messages, &context);
 
   semantics.EmitMessages(llvm::outs());
 

@@ -18,7 +18,10 @@ static void PopulateProcedures(
   for (const auto &pair : scope) {
     const semantics::Symbol &symbol{*pair.second};
     const auto &ultimate = symbol.GetUltimate();
-    if (semantics::IsProcedure(symbol) && !utils::IsFromModFileSafe(ultimate)) {
+    const auto *subprogramDetails =
+        ultimate.detailsIf<semantics::SubprogramDetails>();
+    if (semantics::IsProcedure(symbol) && !utils::IsFromModFileSafe(ultimate) &&
+        (subprogramDetails && !subprogramDetails->isInterface())) {
       pureProcedures[&ultimate] = true;
     }
   }
@@ -28,12 +31,19 @@ static void PopulateProcedures(
   }
 }
 
-static bool CheckSymbolIsPure(const semantics::Symbol &symbol) {
+static bool CheckSymbolIsPure(const semantics::Symbol &symbol,
+                              const semantics::Scope &scope) {
   // get the procedure
   // if (semantics::IsProcedure(unit)) {
-  if (!semantics::FindCommonBlockContaining(symbol) && IsSaved(symbol)) {
-    return false;
+  if (scope.symbol()) {
+    if (const auto &details =
+            scope.symbol()->detailsIf<semantics::SubprogramDetails>();
+        !(details && details->isInterface()) &&
+        !semantics::FindCommonBlockContaining(symbol) && IsSaved(symbol)) {
+      return false;
+    }
   }
+
   if (symbol.attrs().test(semantics::Attr::VOLATILE) &&
       (IsDummy(symbol) /*|| !InInterface()*/)) {
     return false;
@@ -57,9 +67,11 @@ static void CheckPureSymbols(
   if (!scope.IsTopLevel()) {
     for (const auto &pair : scope) {
       const semantics::Symbol &symbol{*pair.second};
-      const semantics::Scope &scope{symbol.owner()};
-      const semantics::Scope &unit{GetProgramUnitContaining(scope)};
-      if (!CheckSymbolIsPure(symbol)) {
+      const semantics::Scope &scope2{symbol.owner()};
+      const semantics::Scope &unit{GetProgramUnitContaining(scope2)};
+      // unit should not be an interface
+      if (!CheckSymbolIsPure(symbol, scope) &&
+          unit.symbol() != &symbol.GetUltimate()) {
         pureProcedures[&unit.symbol()->GetUltimate()] = false;
       }
     }
@@ -88,26 +100,26 @@ static void MakeProcBindingSymbolSet(semantics::SemanticsContext &context,
 
 PureProcedureCheck::PureProcedureCheck(llvm::StringRef name,
                                        FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {
-  MakeProcBindingSymbolSet(context_->getSemanticsContext(),
-                           context_->getSemanticsContext().globalScope());
+    : FlangTidyCheck{name, context} {
+  MakeProcBindingSymbolSet(context->getSemanticsContext(),
+                           context->getSemanticsContext().globalScope());
 
-  PopulateProcedures(context_->getSemanticsContext().globalScope(),
+  PopulateProcedures(context->getSemanticsContext().globalScope(),
                      pureProcedures_);
-  CheckPureSymbols(context_->getSemanticsContext().globalScope(),
+  CheckPureSymbols(context->getSemanticsContext().globalScope(),
                    pureProcedures_);
 }
 
 using namespace parser::literals;
-void PureProcedureCheck::SetUnpure() {
+void PureProcedureCheck::SetImpure() {
   // if theres no location, we cant do anything
-  const auto location{context_->getSemanticsContext().location()};
+  const auto location{context()->getSemanticsContext().location()};
   if (!location) {
     return;
   }
 
   const semantics::Scope &scope{
-      context_->getSemanticsContext().FindScope(*location)};
+      context()->getSemanticsContext().FindScope(*location)};
 
   if (scope.IsTopLevel())
     return;
@@ -129,18 +141,18 @@ void PureProcedureCheck::SetUnpure() {
 }
 
 // C1596: external I/O
-void PureProcedureCheck::Leave(const parser::BackspaceStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::CloseStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::EndfileStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::FlushStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::InquireStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::OpenStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::PrintStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::RewindStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::WaitStmt &) { SetUnpure(); }
+void PureProcedureCheck::Leave(const parser::BackspaceStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::CloseStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::EndfileStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::FlushStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::InquireStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::OpenStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::PrintStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::RewindStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::WaitStmt &) { SetImpure(); }
 // C1597: read/write
-void PureProcedureCheck::Leave(const parser::ReadStmt &) { SetUnpure(); }
-void PureProcedureCheck::Leave(const parser::WriteStmt &) { SetUnpure(); }
+void PureProcedureCheck::Leave(const parser::ReadStmt &) { SetImpure(); }
+void PureProcedureCheck::Leave(const parser::WriteStmt &) { SetImpure(); }
 
 // assignment
 static bool IsPointerDummyOfPureFunction(const semantics::Symbol &x) {
@@ -186,18 +198,18 @@ void PureProcedureCheck::Leave(const parser::AssignmentStmt &assignment) {
   // get the rhs
   const auto &rhs{std::get<parser::Expr>(assignment.t)};
   // get the evaluate::Expr
-  const auto *expr{semantics::GetExpr(context_->getSemanticsContext(), rhs)};
+  const auto *expr{semantics::GetExpr(context()->getSemanticsContext(), rhs)};
 
   const semantics::Scope &scope{
-      context_->getSemanticsContext().FindScope(rhs.source)};
+      context()->getSemanticsContext().FindScope(rhs.source)};
 
-  if (const semantics::Symbol * base{GetFirstSymbol(expr)}) {
+  if (const semantics::Symbol *base{GetFirstSymbol(expr)}) {
     if (const char *why{
             WhyBaseObjectIsSuspicious(base->GetUltimate(), scope)}) {
       if (auto pointer{GetPointerComponentDesignatorName(*expr)}) {
         // mark the procedure as impure
         (void)why;
-        SetUnpure();
+        SetImpure();
       }
     }
   }
@@ -206,14 +218,14 @@ void PureProcedureCheck::Leave(const parser::AssignmentStmt &assignment) {
 // C1592
 void PureProcedureCheck::Leave(const parser::Name &n) {
   if (n.symbol && n.symbol->attrs().test(semantics::Attr::VOLATILE)) {
-    SetUnpure();
+    SetImpure();
   }
 }
 
 // C1598: pure procs cant have image control statements
 void PureProcedureCheck::Enter(const parser::ExecutableConstruct &exec) {
   if (semantics::IsImageControlStmt(exec)) {
-    SetUnpure();
+    SetImpure();
   }
 }
 
@@ -225,7 +237,7 @@ void PureProcedureCheck::Enter(const parser::CallStmt &callStmt) {
 
     // if the called function isnt pure, we cant be pure
     if (!semantics::IsPureProcedure(*symbol))
-      SetUnpure();
+      SetImpure();
   }
 }
 
@@ -236,9 +248,9 @@ void PureProcedureCheck::Leave(const parser::Program &program) {
     // and not an interface
     // check if the symbol is the Ultimate symbol
     const auto &symbol = pair.first->GetUltimate();
-    if (symbol != *pair.first) {
-      continue;
-    }
+    // if (symbol != *pair.first) {
+    //   continue;
+    // }
 
     // make sure its not being mapped to from procBindingDetailsSymbolsMap
     bool cont = false;
@@ -256,6 +268,7 @@ void PureProcedureCheck::Leave(const parser::Program &program) {
       continue;
     }
 
+    // TODO: skip interfaces
     if (pair.second && !pair.first->attrs().test(semantics::Attr::PURE) &&
         !pair.first->attrs().test(semantics::Attr::INTRINSIC) &&
         !pair.first->attrs().test(semantics::Attr::ELEMENTAL) &&
@@ -265,8 +278,7 @@ void PureProcedureCheck::Leave(const parser::Program &program) {
         // if its been derived somewhere, we dont care
         && procBindingDetailsSymbolsMap.find(pair.first) ==
                procBindingDetailsSymbolsMap.end()) {
-      context_->getSemanticsContext().Say(
-          pair.first->name(),
+      Say(pair.first->name(),
           "Procedure '%s' could be PURE but is not"_warn_en_US,
           pair.first->name());
     }

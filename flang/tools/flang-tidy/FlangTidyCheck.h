@@ -1,6 +1,8 @@
 #ifndef FORTRAN_TIDY_FLANGTIDYCHECK_H
 #define FORTRAN_TIDY_FLANGTIDYCHECK_H
 
+#include "FlangTidyContext.h"
+#include "flang/Parser/message.h"
 #include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/semantics.h"
 #include "llvm/ADT/StringRef.h"
@@ -13,9 +15,12 @@ namespace Fortran::tidy {
 
 class FlangTidyCheck : public semantics::BaseChecker {
 public:
-  FlangTidyCheck(llvm::StringRef name) : name_{name} {}
+  FlangTidyCheck(llvm::StringRef name, FlangTidyContext *context)
+      : name_{name}, context_{context} {}
   virtual ~FlangTidyCheck() = default;
   llvm::StringRef name() const { return name_; }
+  FlangTidyContext *context() { return context_; }
+  bool fixAvailable() const { return fixAvailable_; }
 
   using semantics::BaseChecker::Enter;
   using semantics::BaseChecker::Leave;
@@ -71,11 +76,22 @@ public:
   virtual void Leave(const parser::SyncTeamStmt &) {};
   virtual void Leave(const parser::FormTeamStmt &) {};
 
-protected:
-  bool fixAvailable_{false};
+  template <typename... Args>
+  parser::Message &Say(parser::CharBlock at, parser::MessageFixedText &&message,
+                       Args &&...args) {
+    // construct a new fixedTextMessage
+    std::string str{message.text().ToString()};
+    str.append(" [%s]");
+    parser::MessageFixedText newMessage{str.c_str(), str.length(),
+                                        message.severity()};
+    return context_->getSemanticsContext().Say(
+        at, std::move(newMessage), std::forward<Args>(args)..., name_.str());
+  }
 
 private:
+  bool fixAvailable_{false};
   llvm::StringRef name_;
+  FlangTidyContext *context_;
 };
 
 } // namespace Fortran::tidy

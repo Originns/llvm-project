@@ -14,14 +14,11 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-UninitializedVarCheck::UninitializedVarCheck(llvm::StringRef name,
-                                             FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {}
 
 // check AssignmentStmts
 void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
   const auto &var = std::get<parser::Variable>(assignment.t);
-  const auto *lhs = semantics::GetExpr(context_->getSemanticsContext(), var);
+  const auto *lhs = semantics::GetExpr(context()->getSemanticsContext(), var);
   if (lhs) {
     // TODO: handle this better, ideally with a visitor(?)
     if (const semantics::Symbol *base{evaluate::GetFirstSymbol(*lhs)}; base) {
@@ -45,9 +42,9 @@ void UninitializedVarCheck::Leave(const parser::AssignmentStmt &assignment) {
 
         if (allocatedVars_.find(*base) == allocatedVars_.end() &&
             base->owner() ==
-                context_->getSemanticsContext().FindScope(
-                    context_->getSemanticsContext().location().value())) {
-          context_->getSemanticsContext().Say(
+                context()->getSemanticsContext().FindScope(
+                    context()->getSemanticsContext().location().value())) {
+          Say(
               var.GetSource(), "Variable '%s' may be unallocated"_warn_en_US,
               base->name().ToString());
         }
@@ -82,7 +79,7 @@ void UninitializedVarCheck::Leave(const parser::OpenStmt &openStmt) {
   if (statVars != connectSpec.end()) {
     const auto &statVar = std::get<parser::StatVariable>(statVars->u);
     if (const auto *expr{
-            semantics::GetExpr(context_->getSemanticsContext(), statVar)}) {
+            semantics::GetExpr(context()->getSemanticsContext(), statVar)}) {
       if (const auto *symbol{evaluate::UnwrapWholeSymbolDataRef(*expr)}) {
         definedVars_.insert(*symbol);
       }
@@ -95,7 +92,7 @@ void UninitializedVarCheck::Leave(const parser::ReadStmt &readStmt) {
     for (const auto &item : readStmt.items) {
       if (const auto *var{std::get_if<parser::Variable>(&item.u)}) {
         if (const auto *expr{
-                semantics::GetExpr(context_->getSemanticsContext(), *var)}) {
+                semantics::GetExpr(context()->getSemanticsContext(), *var)}) {
           if (const auto *symbol{evaluate::UnwrapWholeSymbolDataRef(*expr)}) {
             definedVars_.insert(*symbol);
             allocatedVars_.insert(*symbol);
@@ -160,7 +157,7 @@ void UninitializedVarCheck::Leave(const parser::AllocateStmt &allocateStmt) {
   for (const auto &allocation : allocations) {
     const auto &allocateObject = std::get<parser::AllocateObject>(allocation.t);
     const auto *expr =
-        semantics::GetExpr(context_->getSemanticsContext(), allocateObject);
+        semantics::GetExpr(context()->getSemanticsContext(), allocateObject);
 
     // extract the first symbol from the AllocateObject
     if (expr) {
@@ -224,7 +221,7 @@ void UninitializedVarCheck::Leave(const parser::WriteStmt &writeStmt) {
   if (writeStmt.iounit) {
     if (const auto *var{std::get_if<parser::Variable>(&writeStmt.iounit->u)}) {
       if (const auto *expr{
-              semantics::GetExpr(context_->getSemanticsContext(), *var)}) {
+              semantics::GetExpr(context()->getSemanticsContext(), *var)}) {
         if (const auto *symbol{evaluate::UnwrapWholeSymbolDataRef(*expr)}) {
           definedVars_.insert(*symbol);
           allocatedVars_.insert(*symbol);
@@ -236,7 +233,7 @@ void UninitializedVarCheck::Leave(const parser::WriteStmt &writeStmt) {
 
 void UninitializedVarCheck::Enter(const parser::Expr &e) {
   static bool shouldSkip = false;
-  const auto *expr = semantics::GetExpr(context_->getSemanticsContext(), e);
+  const auto *expr = semantics::GetExpr(context()->getSemanticsContext(), e);
   if (!expr) {
     return;
   }
@@ -288,12 +285,12 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
   if (std::holds_alternative<common::Indirection<parser::Designator>>(e.u)) {
     const auto symbols = evaluate::CollectSymbols(*expr);
 
-    if (symbols.empty() || !context_->getSemanticsContext().location()) {
+    if (symbols.empty() || !context()->getSemanticsContext().location()) {
       return;
     }
 
-    const auto &scope = context_->getSemanticsContext().FindScope(
-        context_->getSemanticsContext().location().value());
+    const auto &scope = context()->getSemanticsContext().FindScope(
+        context()->getSemanticsContext().location().value());
 
     for (const auto &symbol : symbols) {
       // if the symbol doesnt originate from our scope, skip it
@@ -325,7 +322,7 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       // is the symbol allocatable
       if (symbol->attrs().test(semantics::Attr::ALLOCATABLE)) {
         if (allocatedVars_.find(symbol) == allocatedVars_.end()) {
-          context_->getSemanticsContext().Say(
+          Say(
               e.source, "Variable '%s' may be unallocated"_warn_en_US,
               symbol->name());
         }
@@ -339,7 +336,7 @@ void UninitializedVarCheck::Enter(const parser::Expr &e) {
       }
 
       if (definedVars_.find(symbol) == definedVars_.end() && !shouldSkip) {
-        context_->getSemanticsContext().Say(
+        Say(
             e.source, "Variable '%s' may be used uninitialized"_warn_en_US,
             symbol->name());
       }

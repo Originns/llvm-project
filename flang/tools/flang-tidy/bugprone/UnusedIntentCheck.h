@@ -10,9 +10,8 @@ class UnusedIntentCheck : public virtual FlangTidyCheck {
 public:
   UnusedIntentCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~UnusedIntentCheck() = default;
-
 private:
-  FlangTidyContext *context_;
+  void CheckUnusedIntentHelper(semantics::SemanticsContext &, const semantics::Scope &);
 };
 
 } // namespace Fortran::tidy::bugprone

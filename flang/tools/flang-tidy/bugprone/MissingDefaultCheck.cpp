@@ -1,6 +1,5 @@
 #include "MissingDefaultCheck.h"
 #include "flang/Parser/parse-tree.h"
-#include "flang/Semantics/type.h"
 
 #include <algorithm>
 
@@ -8,9 +7,9 @@ namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
 
-MissingDefaultCheck::MissingDefaultCheck(llvm::StringRef name,
-                                         FlangTidyContext *context)
-    : FlangTidyCheck{name}, context_{context} {}
+// MissingDefaultCheck::MissingDefaultCheck(llvm::StringRef name,
+//                                          FlangTidyContext *context)
+//     : FlangTidyCheck{name}, context(){context} {}
 
 void MissingDefaultCheck::Enter(const parser::CaseConstruct &caseConstruct) {
   const auto &source =
@@ -28,8 +27,7 @@ void MissingDefaultCheck::Enter(const parser::CaseConstruct &caseConstruct) {
   });
 
   if (!hasDefault) {
-    context_->getSemanticsContext().Say(
-        source, "SELECT CASE construct has no DEFAULT case"_warn_en_US);
+    Say(source, "SELECT CASE construct has no DEFAULT case"_warn_en_US);
   }
 }
 

@@ -10,12 +10,9 @@ namespace Fortran::tidy::modernize {
 
 class AvoidPauseStmtCheck : public virtual FlangTidyCheck {
 public:
-  explicit AvoidPauseStmtCheck(llvm::StringRef name, FlangTidyContext *context);
+  using FlangTidyCheck::FlangTidyCheck;
   virtual ~AvoidPauseStmtCheck() = default;
   void Enter(const parser::PauseStmt &) override;
-
-private:
-  FlangTidyContext *context_;
 };
 
 } // namespace Fortran::tidy::modernize
