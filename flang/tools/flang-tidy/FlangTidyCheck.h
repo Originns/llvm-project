@@ -65,6 +65,12 @@ public:
   virtual void Enter(const parser::ForallConstruct &) {};
   virtual void Leave(const parser::DeallocateStmt &) {};
   virtual void Enter(const parser::EntityDecl &) {};
+  virtual void Enter(const parser::OpenMPBlockConstruct &) {};
+  virtual void Leave(const parser::OpenMPBlockConstruct &) {};
+  virtual void Enter(const parser::OmpAtomicUpdate &) {};
+  virtual void Leave(const parser::OmpAtomicUpdate &) {};
+  virtual void Enter(const parser::OpenMPCriticalConstruct &) {};
+  virtual void Leave(const parser::OpenMPCriticalConstruct &) {};
 
   virtual void Leave(const parser::EventPostStmt &) {};
   virtual void Leave(const parser::EventWaitStmt &) {};
