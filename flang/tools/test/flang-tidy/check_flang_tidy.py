@@ -86,8 +86,8 @@ class CheckRunner:
             self.extra_args = self.extra_args[:i]
 
         # Force an empty config to avoid unexpected behavior.
-        if not any([re.match("^-?-config(-file)?=", arg) for arg in self.extra_args]):
-            self.extra_args.append("--config={} ")
+        #if not any([re.match("^-?-config(-file)?=", arg) for arg in self.extra_args]):
+        #    self.extra_args.append("--config={} ")
 
     def read_input(self):
         with open(self.input_file_name, "r", encoding="utf-8") as input_file:
@@ -126,7 +126,7 @@ class CheckRunner:
                 self.temp_file_name,
             ]
             + ["--checks=" + self.check_name]
-            #+ self.extra_args
+            + self.extra_args
             #+ ["--"]
             #+ self.flang_extra_args
         )

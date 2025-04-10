@@ -13,8 +13,10 @@ add_flang_tool(flang-tidy
   bugprone/ArithmeticGotoCheck.cpp
   bugprone/ArithmeticIfStmtCheck.cpp
   bugprone/BugproneTidyModule.cpp
+  bugprone/ContiguousArrayCheck.cpp
   bugprone/ImplicitDeclCheck.cpp
   bugprone/ImpliedSaveCheck.cpp
+  bugprone/MismatchedIntentCheck.cpp
   bugprone/MissingActionCheck.cpp
   bugprone/MissingDefaultCheck.cpp
   bugprone/PrecisionLossCheck.cpp
@@ -33,6 +35,8 @@ add_flang_tool(flang-tidy
   modernize/AvoidDataConstructs.cpp
   modernize/AvoidPauseStmt.cpp
   modernize/ModernizeTidyModule.cpp
+  openmp/AccumulatorRaceCheck.cpp
+  openmp/OpenMPTidyModule.cpp
   tool/FlangTidyMain.cpp
   tool/FlangTidyToolMain.cpp
 )

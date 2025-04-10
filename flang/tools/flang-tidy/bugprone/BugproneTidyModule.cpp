@@ -2,8 +2,10 @@
 #include "../FlangTidyModuleRegistry.h"
 #include "ArithmeticGotoCheck.h"
 #include "ArithmeticIfStmtCheck.h"
+#include "ContiguousArrayCheck.h"
 #include "ImplicitDeclCheck.h"
 #include "ImpliedSaveCheck.h"
+#include "MismatchedIntentCheck.h"
 #include "MissingActionCheck.h"
 #include "MissingDefaultCheck.h"
 #include "PrecisionLossCheck.h"
@@ -22,9 +24,13 @@ public:
         "bugprone-arithmetic-goto");
     CheckFactories.registerCheck<ArithmeticIfStmtCheck>(
         "bugprone-arithmetic-if");
+    CheckFactories.registerCheck<ContiguousArrayCheck>(
+        "bugprone-contiguous-array");
     CheckFactories.registerCheck<ImplicitDeclCheck>(
         "bugprone-implicit-declaration");
     CheckFactories.registerCheck<ImpliedSaveCheck>("bugprone-implied-save");
+    CheckFactories.registerCheck<MismatchedIntentCheck>(
+        "bugprone-mismatched-intent");
     CheckFactories.registerCheck<MissingActionCheck>(
         "bugprone-missing-action-stmt");
     CheckFactories.registerCheck<MissingDefaultCheck>(

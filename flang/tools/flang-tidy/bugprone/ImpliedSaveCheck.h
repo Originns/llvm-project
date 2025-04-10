@@ -8,7 +8,6 @@ namespace Fortran::tidy::bugprone {
 class ImpliedSaveCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;
-  //ImpliedSaveCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~ImpliedSaveCheck() = default;
 
   void Enter(const parser::EntityDecl &) override;
