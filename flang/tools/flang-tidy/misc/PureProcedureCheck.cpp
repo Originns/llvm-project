@@ -234,6 +234,9 @@ void PureProcedureCheck::Enter(const parser::CallStmt &callStmt) {
   const auto *procedureRef = callStmt.typedCall.get();
   if (procedureRef) {
     const auto *symbol{procedureRef->proc().GetSymbol()};
+    if (!symbol) {
+      return;
+    }
 
     // if the called function isnt pure, we cant be pure
     if (!semantics::IsPureProcedure(*symbol))
