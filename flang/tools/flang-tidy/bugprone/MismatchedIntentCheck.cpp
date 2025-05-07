@@ -1,5 +1,4 @@
 #include "MismatchedIntentCheck.h"
-#include "flang/Common/Fortran.h"
 #include "flang/Evaluate/tools.h"
 #include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/tools.h"

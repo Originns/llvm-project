@@ -47,7 +47,7 @@ llvm_update_compile_flags(flang-tidy)
 
 target_link_libraries(flang-tidy
   PRIVATE
-  FortranCommon
+  FortranSupport
   FortranEvaluate
   FortranParser
   FortranSemantics

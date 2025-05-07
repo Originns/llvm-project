@@ -1,5 +1,4 @@
 #include "UninitializedVarCheck.h"
-#include "flang/Common/Fortran.h"
 #include "flang/Evaluate/call.h"
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
