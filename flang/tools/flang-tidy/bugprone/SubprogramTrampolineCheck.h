@@ -9,8 +9,6 @@ namespace Fortran::tidy::bugprone {
 class SubprogramTrampolineCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;
-  // explicit SubprogramTrampolineCheck(llvm::StringRef name,
-  //                                    FlangTidyContext *context);
   virtual ~SubprogramTrampolineCheck() = default;
   void Enter(const parser::Expr &) override;
   void Enter(const parser::CallStmt &) override;

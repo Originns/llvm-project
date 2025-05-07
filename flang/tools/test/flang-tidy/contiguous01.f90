@@ -5,9 +5,9 @@ module test
        real, contiguous, intent(in) :: A(:)
      end subroutine contig
 
+     ! CHECK-MESSAGES: :[[@LINE+1]]:17: warning: assumed-shape array 'possibly_noncontig' should be contiguous
      subroutine possibly_noncontig(A)
        real, intent(in) :: A(:)
-       ! CHECK-MESSAGES: :[[@LINE-1]]:28: warning: assumed-shape array 'a' should be contiguous
      end subroutine possibly_noncontig
   end interface
 end module test

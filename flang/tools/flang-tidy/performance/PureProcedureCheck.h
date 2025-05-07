@@ -6,7 +6,7 @@
 #include "flang/Parser/parse-tree.h"
 #include "llvm/ADT/StringRef.h"
 
-namespace Fortran::tidy::misc {
+namespace Fortran::tidy::performance {
 
 class PureProcedureCheck : public virtual FlangTidyCheck {
 public:
@@ -44,6 +44,6 @@ private:
   std::unordered_map<const semantics::Symbol *, bool> pureProcedures_;
 };
 
-} // namespace Fortran::tidy::misc
+} // namespace Fortran::tidy::performance
 
 #endif // FORTRAN_TIDY_PUREPROCEDURE

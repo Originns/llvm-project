@@ -26,9 +26,6 @@ add_flang_tool(flang-tidy
   bugprone/UnusedIntentCheck.cpp
   FlangTidy.cpp
   FlangTidyModule.cpp
-  misc/MiscTidyModule.cpp
-  misc/PureProcedureCheck.cpp
-  misc/UnusedUseCheck.cpp
   modernize/AvoidAssignStmt.cpp
   modernize/AvoidBackspaceStmt.cpp
   modernize/AvoidCommonBlocks.cpp
@@ -37,6 +34,11 @@ add_flang_tool(flang-tidy
   modernize/ModernizeTidyModule.cpp
   openmp/AccumulatorRaceCheck.cpp
   openmp/OpenMPTidyModule.cpp
+  performance/PerformanceTidyModule.cpp
+  performance/PureProcedureCheck.cpp
+  readability/FunctionCognitiveComplexityCheck.cpp
+  readability/FunctionSizeCheck.cpp
+  readability/ReadabilityTidyModule.cpp
   tool/FlangTidyMain.cpp
   tool/FlangTidyToolMain.cpp
 )

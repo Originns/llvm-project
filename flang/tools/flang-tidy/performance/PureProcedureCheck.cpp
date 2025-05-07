@@ -7,7 +7,7 @@
 #include "flang/Semantics/type.h"
 #include "utils/SymbolUtils.h"
 
-namespace Fortran::tidy::misc {
+namespace Fortran::tidy::performance {
 
 static void PopulateProcedures(
     const semantics::Scope &scope,
@@ -33,8 +33,6 @@ static void PopulateProcedures(
 
 static bool CheckSymbolIsPure(const semantics::Symbol &symbol,
                               const semantics::Scope &scope) {
-  // get the procedure
-  // if (semantics::IsProcedure(unit)) {
   if (scope.symbol()) {
     if (const auto &details =
             scope.symbol()->detailsIf<semantics::SubprogramDetails>();
@@ -44,16 +42,14 @@ static bool CheckSymbolIsPure(const semantics::Symbol &symbol,
     }
   }
 
-  if (symbol.attrs().test(semantics::Attr::VOLATILE) &&
-      (IsDummy(symbol) /*|| !InInterface()*/)) {
+  if (symbol.attrs().test(semantics::Attr::VOLATILE) && IsDummy(symbol)) {
     return false;
   }
-  // if (innermostSymbol_ && innermostSymbol_->name() == "__builtin_c_funloc")
-  //  The intrinsic procedure C_FUNLOC() gets a pass on this check.
+
   if (IsProcedure(symbol) && !IsPureProcedure(symbol) && IsDummy(symbol)) {
     return false;
   }
-  //}
+
   return true;
 }
 
@@ -112,7 +108,6 @@ PureProcedureCheck::PureProcedureCheck(llvm::StringRef name,
 
 using namespace parser::literals;
 void PureProcedureCheck::SetImpure() {
-  // if theres no location, we cant do anything
   const auto location{context()->getSemanticsContext().location()};
   if (!location) {
     return;
@@ -128,11 +123,10 @@ void PureProcedureCheck::SetImpure() {
   const auto &ultimateSymbol = unit.symbol()->GetUltimate();
 
   if (semantics::IsProcedure(unit)) {
-    // mark the procedure as impure
     pureProcedures_[&ultimateSymbol] = false;
   }
 
-  // Ensure impurity is applied to all related symbols (BaseType & DerivedType)
+  // propagate impurity to other procedures
   for (const auto &pair : procBindingDetailsSymbolsMap) {
     if (pair.first == &ultimateSymbol) {
       pureProcedures_[pair.second] = false;
@@ -288,4 +282,4 @@ void PureProcedureCheck::Leave(const parser::Program &program) {
   }
 }
 
-} // namespace Fortran::tidy::misc
+} // namespace Fortran::tidy::performance

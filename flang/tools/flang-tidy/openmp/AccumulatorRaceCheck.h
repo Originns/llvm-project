@@ -12,6 +12,8 @@ public:
 
   void Enter(const parser::OpenMPBlockConstruct &) override;
   void Leave(const parser::OpenMPBlockConstruct &) override;
+  void Enter(const parser::OpenMPLoopConstruct &) override;
+  void Leave(const parser::OpenMPLoopConstruct &) override;
   void Enter(const parser::OmpAtomicUpdate &) override;
   void Leave(const parser::OmpAtomicUpdate &) override;
   void Enter(const parser::OpenMPCriticalConstruct &) override;
@@ -19,9 +21,9 @@ public:
   void Enter(const parser::AssignmentStmt &) override;
 
 private:
-  bool inParallelRegion_ = false;
-  bool inCriticalSection_ = false;
-  bool inAtomicUpdate_ = false;
+  int inParallelRegion_ = 0;
+  int inCriticalSection_ = 0;
+  int inAtomicUpdate_ = 0;
 };
 
 } // namespace Fortran::tidy::openmp

@@ -11,11 +11,6 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-// SubprogramTrampolineCheck::SubprogramTrampolineCheck(llvm::StringRef name,
-//                                                      FlangTidyContext
-//                                                      *context)
-//     : FlangTidyCheck{name, context} {}
-
 void SubprogramTrampolineCheck::Enter(const parser::CallStmt &callStmt) {
   const auto *procedureRef = callStmt.typedCall.get();
   if (procedureRef) {
@@ -45,7 +40,6 @@ void SubprogramTrampolineCheck::Enter(const parser::Expr &e) {
     return;
   }
 
-  // check FunctionRefs
   if (std::holds_alternative<common::Indirection<parser::FunctionReference>>(
           e.u)) {
     evaluate::ActualArgumentSet argSet{evaluate::CollectActualArguments(*expr)};
@@ -56,8 +50,7 @@ void SubprogramTrampolineCheck::Enter(const parser::Expr &e) {
         const auto proc = std::get<evaluate::ProcedureDesignator>(argExpr->u);
         if (const auto *symbol{proc.GetSymbol()}) {
           if (symbol->has<semantics::SubprogramDetails>()) {
-            Say(
-                e.source,
+            Say(e.source,
                 "contained subprogram '%s' is passed as an argument"_warn_en_US,
                 symbol->name().ToString());
           }

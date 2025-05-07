@@ -44,7 +44,6 @@ MultiplexVisitorFactory::MultiplexVisitorFactory()
 }
 
 static std::string extractCheckName(const std::string &message) {
-  // Look for [check-name] pattern at the end of the message
   size_t openBracket = message.rfind('[');
   size_t closeBracket = message.rfind(']');
 
@@ -53,7 +52,7 @@ static std::string extractCheckName(const std::string &message) {
     return message.substr(openBracket + 1, closeBracket - openBracket - 1);
   }
 
-  return ""; // No check name found
+  return "";
 }
 
 static bool shouldSuppressWarning(const parser::ProvenanceRange &source,
@@ -63,11 +62,9 @@ static bool shouldSuppressWarning(const parser::ProvenanceRange &source,
     return false;
   }
 
-  // Get the provenance range for the source location
   const auto &cookedSources = context->getSemanticsContext().allCookedSources();
   const auto &allSources = cookedSources.allSources();
 
-  // Get the source position
   auto srcPosition = allSources.GetSourcePosition(source.start());
   if (!srcPosition) {
     return false;

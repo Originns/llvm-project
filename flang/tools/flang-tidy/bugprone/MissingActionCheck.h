@@ -9,7 +9,6 @@ namespace Fortran::tidy::bugprone {
 class MissingActionCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;
-  //MissingActionCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~MissingActionCheck() = default;
 
   void Leave(const parser::FileUnitNumber &) override;

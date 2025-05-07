@@ -2,9 +2,7 @@
 #define FORTRAN_TIDY_AVOIDPAUSESTMT
 
 #include "FlangTidyCheck.h"
-#include "FlangTidyContext.h"
 #include "flang/Parser/parse-tree.h"
-#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::modernize {
 

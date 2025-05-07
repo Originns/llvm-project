@@ -6,11 +6,6 @@
 namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
-
-// MissingDefaultCheck::MissingDefaultCheck(llvm::StringRef name,
-//                                          FlangTidyContext *context)
-//     : FlangTidyCheck{name}, context(){context} {}
-
 void MissingDefaultCheck::Enter(const parser::CaseConstruct &caseConstruct) {
   const auto &source =
       std::get<parser::Statement<parser::SelectCaseStmt>>(caseConstruct.t)

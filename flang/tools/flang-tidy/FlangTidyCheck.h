@@ -65,8 +65,25 @@ public:
   virtual void Enter(const parser::ForallConstruct &) {};
   virtual void Leave(const parser::DeallocateStmt &) {};
   virtual void Enter(const parser::EntityDecl &) {};
+  virtual void Enter(const parser::IfConstruct &) {};
+  virtual void Enter(const parser::GotoStmt &) {};
+  virtual void Enter(const parser::SelectRankConstruct &) {};
+  virtual void Enter(const parser::SelectTypeConstruct &) {};
+  virtual void Enter(const parser::AssociateConstruct &) {};
+  virtual void Enter(const parser::Expr::AND &) {};
+  virtual void Enter(const parser::Expr::OR &) {};
+  virtual void Enter(const parser::Block &) {};
+  virtual void Leave(const parser::Block &) {};
+  virtual void Enter(const parser::FunctionSubprogram &) {};
+  virtual void Leave(const parser::FunctionSubprogram &) {};
+  virtual void Enter(const parser::SubroutineSubprogram &) {};
+  virtual void Leave(const parser::SubroutineSubprogram &) {};
+
+  // OpenMP
   virtual void Enter(const parser::OpenMPBlockConstruct &) {};
   virtual void Leave(const parser::OpenMPBlockConstruct &) {};
+  virtual void Enter(const parser::OpenMPLoopConstruct &) {};
+  virtual void Leave(const parser::OpenMPLoopConstruct &) {};
   virtual void Enter(const parser::OmpAtomicUpdate &) {};
   virtual void Leave(const parser::OmpAtomicUpdate &) {};
   virtual void Enter(const parser::OpenMPCriticalConstruct &) {};

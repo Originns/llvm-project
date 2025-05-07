@@ -11,9 +11,6 @@ namespace Fortran::tidy::bugprone {
 class UninitializedVarCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;
-  // explicit UninitializedVarCheck(llvm::StringRef name,
-  //                                FlangTidyContext *context)
-  //     : FlangTidyCheck{name, context} {}
   virtual ~UninitializedVarCheck() = default;
   // Variable definitions via assignments
   void Leave(const parser::AssignmentStmt &) override;

@@ -1,4 +1,5 @@
 #include "ContiguousArrayCheck.h"
+#include "flang/Semantics/symbol.h"
 
 namespace Fortran::tidy::bugprone {
 
@@ -9,19 +10,23 @@ void ContiguousArrayCheck::CheckForContinguousArray(
   if (scope.IsModuleFile())
     return;
 
-  // if there is a symbol that is inferred shape and doesnt have contiguous,
-  // warn about it
   for (const auto &pair : scope) {
     const semantics::Symbol &symbol{*pair.second};
-    // does it have object entity details?
-    if (const auto *details{
-            symbol.detailsIf<semantics::ObjectEntityDetails>()}) {
-      // is it an array?
-      if (details->IsAssumedShape() &&
-          !symbol.attrs().test(semantics::Attr::CONTIGUOUS)) {
-        Say(symbol.name(),
-            "assumed-shape array '%s' should be contiguous"_warn_en_US,
-            symbol.name());
+
+    if (const auto *details{symbol.detailsIf<semantics::SubprogramDetails>()};
+        details && details->isInterface()) {
+      for (const auto &dummyArg : details->dummyArgs()) {
+        if (!dummyArg)
+          continue;
+
+        if (const auto *details{
+                dummyArg->detailsIf<semantics::ObjectEntityDetails>()};
+            details && details->IsAssumedShape() &&
+            !dummyArg->attrs().test(semantics::Attr::CONTIGUOUS)) {
+          Say(symbol.name(),
+              "assumed-shape array '%s' should be contiguous"_warn_en_US,
+              symbol.name());
+        }
       }
     }
   }

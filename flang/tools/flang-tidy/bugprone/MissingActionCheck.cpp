@@ -10,18 +10,13 @@ namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
 
-//MissingActionCheck::MissingActionCheck(llvm::StringRef name,
-//                                       FlangTidyContext *context)
-//    : FlangTidyCheck{name}, context(){context} {}
-
 void MissingActionCheck::Leave(const parser::FileUnitNumber &fileUnit) {
   // warn if its a const expr
   const auto *expr =
       semantics::GetExpr(context()->getSemanticsContext(), fileUnit.v);
 
   if (expr && evaluate::IsConstantExpr(*expr)) {
-    Say(
-        context()->getSemanticsContext().location().value(),
+    Say(context()->getSemanticsContext().location().value(),
         "File unit number is a constant literal"_warn_en_US);
   }
 }
@@ -34,13 +29,13 @@ void MissingActionCheck::Leave(const parser::OpenStmt &openStmt) {
   const auto &action = std::find_if(
       connectSpec.begin(), connectSpec.end(), [](const auto &spec) {
         return std::holds_alternative<parser::ConnectSpec::CharExpr>(spec.u) &&
-               std::get<parser::ConnectSpec::CharExpr::Kind>(std::get<parser::ConnectSpec::CharExpr>(spec.u).t) ==
+               std::get<parser::ConnectSpec::CharExpr::Kind>(
+                   std::get<parser::ConnectSpec::CharExpr>(spec.u).t) ==
                    parser::ConnectSpec::CharExpr::Kind::Action;
       });
 
   if (action == connectSpec.end()) {
-    Say(
-        source, "ACTION specifier is missing"_warn_en_US);
+    Say(source, "ACTION specifier is missing"_warn_en_US);
   }
 }
 

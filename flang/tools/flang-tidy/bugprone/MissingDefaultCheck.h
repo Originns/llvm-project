@@ -9,7 +9,6 @@ namespace Fortran::tidy::bugprone {
 class MissingDefaultCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;
-  //MissingDefaultCheck(llvm::StringRef name, FlangTidyContext *context);
   virtual ~MissingDefaultCheck() = default;
 
   void Enter(const parser::CaseConstruct &) override;

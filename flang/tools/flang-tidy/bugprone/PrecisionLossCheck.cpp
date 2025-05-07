@@ -9,10 +9,6 @@
 
 namespace Fortran::tidy::bugprone {
 
-// PrecisionLossCheck::PrecisionLossCheck(llvm::StringRef name,
-//                                        FlangTidyContext *context)
-//     : FlangTidyCheck{name}, context(){context} {}
-
 static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
                               const semantics::SomeExpr *rhs,
                               bool hasExplicitKind, bool isConstantReal) {
@@ -31,7 +27,6 @@ static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
       rhsCat == common::TypeCategory::Derived)
     return false;
 
-  // this will fail if we call this on a derived type
   int lhsKind = lhsType->kind();
   int rhsKind = rhsType->kind();
 
@@ -42,12 +37,10 @@ static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
   if (lhsCat == rhsCat && lhsKind < rhsKind)
     return true;
 
-  // is the rhs is a literal and lhs has larger kind than the rhs
   if (isConstantReal && lhsKind > rhsKind && !hasExplicitKind) {
     return true;
   }
 
-  // complex = real are basically real = real
   if (lhsCat == common::TypeCategory::Complex &&
       rhsCat == common::TypeCategory::Real) {
     if (lhsKind < rhsKind)
@@ -55,21 +48,18 @@ static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
     return false;
   }
 
-  // real = complex loses precision
   if ((lhsCat == common::TypeCategory::Real ||
        lhsCat == common::TypeCategory::Integer) &&
       rhsCat == common::TypeCategory::Complex) {
     return true;
   }
 
-  // integer = real/complex conversions always lose precision
   if (lhsCat == common::TypeCategory::Integer &&
       (rhsCat == common::TypeCategory::Real ||
        rhsCat == common::TypeCategory::Complex)) {
     return true;
   }
 
-  // real/complex = integer conversions always lose precision
   if ((lhsCat == common::TypeCategory::Real ||
        lhsCat == common::TypeCategory::Complex) &&
       rhsCat == common::TypeCategory::Integer && lhsKind <= rhsKind) {
@@ -91,10 +81,8 @@ void PrecisionLossCheck::Enter(const parser::AssignmentStmt &assignment) {
 
   bool hasExplicitKind = false;
   bool isConstantReal = false;
-  // if the expr is LiteralConstant, we can get the value
   if (std::holds_alternative<parser::LiteralConstant>(expr.u)) {
     const auto &literal = std::get<parser::LiteralConstant>(expr.u);
-    // if it holds a RealLiteralConstant, we can get the value
     if (std::holds_alternative<parser::RealLiteralConstant>(literal.u)) {
       const auto &realLiteral =
           std::get<parser::RealLiteralConstant>(literal.u);
