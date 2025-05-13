@@ -5,6 +5,10 @@
 
 namespace Fortran::tidy::openmp {
 
+/// This check tries to detect potential race conditions in OpenMP accumulators.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/accumulator-race.html
 class AccumulatorRaceCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

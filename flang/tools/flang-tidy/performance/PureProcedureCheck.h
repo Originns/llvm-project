@@ -8,6 +8,10 @@
 
 namespace Fortran::tidy::performance {
 
+/// This check warns about procedures that could be pure but are not.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/pure-procedure.html
 class PureProcedureCheck : public virtual FlangTidyCheck {
 public:
   explicit PureProcedureCheck(llvm::StringRef name, FlangTidyContext *context);

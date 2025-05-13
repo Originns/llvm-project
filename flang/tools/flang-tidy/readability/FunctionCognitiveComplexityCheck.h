@@ -6,6 +6,11 @@
 
 namespace Fortran::tidy::readability {
 
+/// This check verifies that the cognitive complexity of a function is
+/// not too high.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/function-cognitive-complexity.html
 class FunctionCognitiveComplexityCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

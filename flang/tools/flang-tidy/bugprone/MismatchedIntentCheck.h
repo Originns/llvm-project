@@ -6,6 +6,11 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check warns if a variable is passed to a procedure multiple times with
+/// mismatched intent.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/mismatched-intent.html
 class MismatchedIntentCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

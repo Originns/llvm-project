@@ -13,6 +13,14 @@ namespace Fortran::tidy {
 // it has Enter and Leave methods that are called by the flang
 // semantic checker when entering and leaving a node in the AST
 
+/// This is the base class for all Flang Tidy checks. It provides a
+/// common interface for all checks and allows them to interact with
+/// the Flang Tidy context. Each check should inherit from this
+/// class and implement the necessary methods to perform its
+/// specific analysis.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/flang-tidy-checks.html
 class FlangTidyCheck : public semantics::BaseChecker {
 public:
   FlangTidyCheck(llvm::StringRef name, FlangTidyContext *context)

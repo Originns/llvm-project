@@ -5,6 +5,10 @@
 
 namespace Fortran::tidy::modernize {
 
+/// This check verifies that DATA constructs are avoided.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/avoid-data-constructs.html
 class AvoidDataConstructsCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

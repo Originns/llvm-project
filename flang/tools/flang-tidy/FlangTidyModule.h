@@ -14,7 +14,7 @@ class FlangTidyContext;
 
 /// A collection of \c TidyCheckFactory instances.
 ///
-/// All clang-tidy modules register their check factories with an instance of
+/// All Flang-tidy modules register their check factories with an instance of
 /// this object.
 class FlangTidyCheckFactories {
 public:
@@ -28,12 +28,12 @@ public:
 
   /// Registers the \c CheckType with the name \p Name.
   ///
-  /// This method should be used for all \c ClangTidyChecks that don't require
+  /// This method should be used for all \c FlangTidyChecks that don't require
   /// constructor parameters.
   ///
-  /// For example, if have a clang-tidy check like:
+  /// For example, if have a Flang-tidy check like:
   /// \code
-  /// class MyTidyCheck : public ClangTidyCheck {
+  /// class MyTidyCheck : public FlangTidyCheck {
   ///   void registerMatchers(ast_matchers::MatchFinder *Finder) override {
   ///     ..
   ///   }
@@ -41,8 +41,8 @@ public:
   /// \endcode
   /// you can register it with:
   /// \code
-  /// class MyModule : public ClangTidyModule {
-  ///   void addCheckFactories(ClangTidyCheckFactories &Factories) override {
+  /// class MyModule : public FlangTidyModule {
+  ///   void addCheckFactories(FlangTidyCheckFactories &Factories) override {
   ///     Factories.registerCheck<MyTidyCheck>("myproject-my-check");
   ///   }
   /// };
@@ -72,7 +72,7 @@ private:
   FactoryMap Factories;
 };
 
-/// A clang-tidy module groups a number of \c ClangTidyChecks and gives
+/// A flang-tidy module groups a number of \c FlangTidyChecks and gives
 /// them a prefixed name.
 class FlangTidyModule {
 public:

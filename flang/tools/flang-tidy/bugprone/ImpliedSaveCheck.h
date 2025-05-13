@@ -5,6 +5,10 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check warns about variables that are implicitly saved.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/implicit-save.html
 class ImpliedSaveCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

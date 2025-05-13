@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy::modernize {
 
+/// This check verifies that BACKSPACE statements are avoided.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/avoid-backspace-stmt.html
 class AvoidBackspaceStmtCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

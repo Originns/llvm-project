@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check verifies that all CASE constructs have a default case.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/missing-default.html
 class MissingDefaultCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

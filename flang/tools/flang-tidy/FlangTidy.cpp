@@ -260,8 +260,7 @@ int runFlangTidy(const FlangTidyOptions &options) {
   auto &semantics = flang->getSemantics();
   auto &semanticsContext = semantics.context();
 
-  FlangTidyContext context{options, &semanticsContext,
-                           &flang->getDiagnostics()};
+  FlangTidyContext context{options, &semanticsContext};
 
   MultiplexVisitorFactory visitorFactory{};
   MultiplexVisitor visitor{semanticsContext};

@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy {
 
+/// Options for the Flang Tidy tool that are passed from the command line.
+///
+/// For user-facing documentation, see:
+/// https://clang.llvm.org/docs/LibTooling.html#flang-tidy-options
 struct FlangTidyOptions {
   std::vector<std::string> sourcePaths;
   std::vector<std::string> enabledChecks;

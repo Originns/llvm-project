@@ -8,6 +8,10 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check verifies that all variables are initialized before use.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/uninitialized-variable.html
 class UninitializedVarCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

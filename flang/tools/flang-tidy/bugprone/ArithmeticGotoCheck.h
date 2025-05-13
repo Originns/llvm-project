@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check detects the use of arithmetic GOTO statements in Fortran code.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/bugprone-arithmetic-goto.html
 class ArithmeticGotoCheck : public FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

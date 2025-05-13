@@ -7,6 +7,10 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check verifies that all procedures are explicitly declared.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/implicit-procedure-declaration.html
 class UndeclaredProcCheck : public virtual FlangTidyCheck {
 public:
   UndeclaredProcCheck(llvm::StringRef name, FlangTidyContext *context);

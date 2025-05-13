@@ -7,6 +7,11 @@
 
 namespace Fortran::tidy::readability {
 
+/// This check verifies that the size of functions and subroutines is within a
+/// certain threshold.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/function-size.html
 class FunctionSizeCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

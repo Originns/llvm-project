@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check verifies that all INTENT attributes are used.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/unused-intent.html
 class UnusedIntentCheck : public virtual FlangTidyCheck {
 public:
   UnusedIntentCheck(llvm::StringRef name, FlangTidyContext *context);

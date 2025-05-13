@@ -6,6 +6,11 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check verifies that all OPEN statements have an ACTION clause, and that
+/// the FILE UNIT NUMBER is not a constant literal.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/missing-action.html
 class MissingActionCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

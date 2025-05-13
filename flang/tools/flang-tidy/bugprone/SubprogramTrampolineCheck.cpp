@@ -23,7 +23,7 @@ void SubprogramTrampolineCheck::Enter(const parser::CallStmt &callStmt) {
         const auto proc = std::get<evaluate::ProcedureDesignator>(argExpr->u);
         if (const auto *symbol{proc.GetSymbol()}) {
           if (symbol->has<semantics::SubprogramDetails>()) {
-            context()->getSemanticsContext().Say(
+            Say(
                 callStmt.source,
                 "contained subprogram '%s' is passed as an argument"_warn_en_US,
                 symbol->name().ToString());

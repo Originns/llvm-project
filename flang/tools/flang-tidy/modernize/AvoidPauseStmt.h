@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy::modernize {
 
+/// This check verifies that PAUSE statements are avoided.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/avoid-pause-stmt.html
 class AvoidPauseStmtCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

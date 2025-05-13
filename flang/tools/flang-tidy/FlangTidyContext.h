@@ -11,16 +11,22 @@
 namespace Fortran::tidy {
 
 // flang tidy context holds information about the enabled checks
+
+
+/// This class is used to manage the context for Flang Tidy checks.
+/// It contains the enabled checks and the semantics context.
+/// It provides methods to check if a specific check is enabled and to access the semantics context.
+///
+/// For user-facing documentation, see:
+/// https://flang.llvm.org/@PLACEHOLDER@/flang-tidy.html
 class FlangTidyContext {
 public:
   FlangTidyContext(const FlangTidyOptions &options,
-                   semantics::SemanticsContext *ctx,
-                   clang::DiagnosticsEngine *diags) {
+                   semantics::SemanticsContext *ctx) {
     for (const auto &CheckName : options.enabledChecks) {
       Checks.insert(CheckName);
     }
     Context = ctx;
-    Diags = diags;
   }
 
   bool isCheckEnabled(const llvm::StringRef &CheckName) const {
@@ -53,9 +59,10 @@ public:
   semantics::SemanticsContext &getSemanticsContext() const { return *Context; }
 
 public:
+  /// List of enabled checks.
   llvm::SmallSet<llvm::StringRef, 16> Checks;
+  /// The semantics context used for the checks.
   semantics::SemanticsContext *Context;
-  clang::DiagnosticsEngine *Diags;
 };
 
 } // namespace Fortran::tidy

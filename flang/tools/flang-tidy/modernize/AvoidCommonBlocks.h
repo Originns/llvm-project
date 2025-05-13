@@ -5,6 +5,10 @@
 
 namespace Fortran::tidy::modernize {
 
+/// This check verifies that COMMON blocks are avoided.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/avoid-common-blocks.html
 class AvoidCommonBlocksCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

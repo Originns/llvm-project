@@ -6,6 +6,11 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check verifies that a contained subprogram is not passed as an
+/// actual argument to a procedure.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/subprogram-trampoline.html
 class SubprogramTrampolineCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

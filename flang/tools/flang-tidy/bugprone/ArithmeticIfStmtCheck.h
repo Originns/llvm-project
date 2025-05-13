@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy::bugprone {
 
+/// This check detects the use of arithmetic IF statements.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/arithmetic-if-statement.html
 class ArithmeticIfStmtCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;

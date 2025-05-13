@@ -6,6 +6,10 @@
 
 namespace Fortran::tidy::modernize {
 
+/// This check verifies that ASSIGN and ASSIGNED GOTO statements are avoided.
+///
+/// For the user-facing documentation see:
+/// https://flang.llvm.org/@PLACEHOLDER@/avoid-assign-stmt.html
 class AvoidAssignStmtCheck : public virtual FlangTidyCheck {
 public:
   using FlangTidyCheck::FlangTidyCheck;
