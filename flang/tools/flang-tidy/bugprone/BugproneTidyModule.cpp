@@ -32,7 +32,7 @@ public:
     CheckFactories.registerCheck<MismatchedIntentCheck>(
         "bugprone-mismatched-intent");
     CheckFactories.registerCheck<MissingActionCheck>(
-        "bugprone-missing-action-stmt");
+        "bugprone-missing-action");
     CheckFactories.registerCheck<MissingDefaultCheck>(
         "bugprone-missing-default-case");
     CheckFactories.registerCheck<PrecisionLossCheck>("bugprone-precision-loss");

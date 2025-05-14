@@ -22,7 +22,7 @@ Flang-Tidy Checks
    :doc:`bugprone-implicit-declaration <bugprone/implicit-declaration>`,
    :doc:`bugprone-implied-save <bugprone/implied-save>`,
    :doc:`bugprone-mismatched-intent <bugprone/mismatched-intent>`,
-   :doc:`bugprone-missing-action-stmt <bugprone/missing-action-stmt>`,
+   :doc:`bugprone-missing-action <bugprone/missing-action>`,
    :doc:`bugprone-missing-default-case <bugprone/missing-default-case>`,
    :doc:`bugprone-precision-loss <bugprone/precision-loss>`,
    :doc:`bugprone-subprogram-trampoline <bugprone/subprogram-trampoline>`,

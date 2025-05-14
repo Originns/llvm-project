@@ -1,7 +1,7 @@
-.. title:: flang-tidy - bugprone-missing-action-stmt
+.. title:: flang-tidy - bugprone-missing-action
 
-bugprone-missing-action-stmt
-============================
+bugprone-missing-action
+=======================
 
 Verifies that all OPEN statements include an ACTION specifier, and that file unit numbers are not constant literals. This helps ensure proper file handling behavior and avoids hard-coded unit numbers.
 
