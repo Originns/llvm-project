@@ -1,6 +1,7 @@
 #include "../FlangTidyModule.h"
 #include "../FlangTidyModuleRegistry.h"
 #include "FunctionCognitiveComplexityCheck.h"
+#include "FunctionSizeCheck.h"
 
 namespace Fortran::tidy {
 namespace readability {
@@ -10,6 +11,8 @@ public:
   void addCheckFactories(FlangTidyCheckFactories &CheckFactories) override {
     CheckFactories.registerCheck<FunctionCognitiveComplexityCheck>(
         "readability-function-cognitive-complexity");
+    CheckFactories.registerCheck<FunctionSizeCheck>(
+        "readability-function-size");
   }
 };
 
