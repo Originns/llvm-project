@@ -4,6 +4,7 @@
 #include "ArithmeticIfStmtCheck.h"
 #include "ContiguousArrayCheck.h"
 #include "ImplicitDeclCheck.h"
+#include "ImpliedSaveCheck.h"
 
 namespace Fortran::tidy {
 namespace bugprone {
@@ -19,6 +20,7 @@ public:
         "bugprone-contiguous-array");
     CheckFactories.registerCheck<ImplicitDeclCheck>(
         "bugprone-implicit-declaration");
+    CheckFactories.registerCheck<ImpliedSaveCheck>("bugprone-implied-save");
   }
 };
 
