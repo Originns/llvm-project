@@ -3,6 +3,7 @@
 #include "AvoidAssignStmt.h"
 #include "AvoidBackspaceStmt.h"
 #include "AvoidCommonBlocks.h"
+#include "AvoidDataConstructs.h"
 
 namespace Fortran::tidy {
 namespace modernize {
@@ -16,6 +17,8 @@ public:
         "modernize-avoid-backspace-stmt");
     CheckFactories.registerCheck<AvoidCommonBlocksCheck>(
         "modernize-avoid-common-blocks");
+    CheckFactories.registerCheck<AvoidDataConstructsCheck>(
+        "modernize-avoid-data-constructs");
   }
 };
 
