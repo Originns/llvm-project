@@ -11,6 +11,7 @@
 #include "PrecisionLossCheck.h"
 #include "SubprogramTrampolineCheck.h"
 #include "UndeclaredProcCheck.h"
+#include "UnusedIntentCheck.h"
 
 namespace Fortran::tidy {
 namespace bugprone {
@@ -37,6 +38,7 @@ public:
         "bugprone-subprogram-trampoline");
     CheckFactories.registerCheck<UndeclaredProcCheck>(
         "bugprone-undeclared-procedure");
+    CheckFactories.registerCheck<UnusedIntentCheck>("bugprone-unused-intent");
   }
 };
 
