@@ -3,6 +3,7 @@
 #include "ArithmeticGotoCheck.h"
 #include "ArithmeticIfStmtCheck.h"
 #include "ContiguousArrayCheck.h"
+#include "ImplicitDeclCheck.h"
 
 namespace Fortran::tidy {
 namespace bugprone {
@@ -16,6 +17,8 @@ public:
         "bugprone-arithmetic-if");
     CheckFactories.registerCheck<ContiguousArrayCheck>(
         "bugprone-contiguous-array");
+    CheckFactories.registerCheck<ImplicitDeclCheck>(
+        "bugprone-implicit-declaration");
   }
 };
 
