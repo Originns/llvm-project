@@ -1,6 +1,7 @@
 #include "../FlangTidyModule.h"
 #include "../FlangTidyModuleRegistry.h"
 #include "AvoidAssignStmt.h"
+#include "AvoidBackspaceStmt.h"
 
 namespace Fortran::tidy {
 namespace modernize {
@@ -10,6 +11,8 @@ public:
   void addCheckFactories(FlangTidyCheckFactories &CheckFactories) override {
     CheckFactories.registerCheck<AvoidAssignStmtCheck>(
         "modernize-avoid-assign-stmt");
+    CheckFactories.registerCheck<AvoidBackspaceStmtCheck>(
+        "modernize-avoid-backspace-stmt");
   }
 };
 
