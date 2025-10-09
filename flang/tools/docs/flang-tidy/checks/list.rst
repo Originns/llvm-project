@@ -24,6 +24,7 @@ Flang-Tidy Checks
    :doc:`bugprone-mismatched-intent <bugprone/mismatched-intent>`,
    :doc:`bugprone-missing-action <bugprone/missing-action>`,
    :doc:`bugprone-missing-default-case <bugprone/missing-default-case>`,
+   :doc:`bugprone-pointer-temporary <bugprone/pointer-temporary>`,
    :doc:`bugprone-precision-loss <bugprone/precision-loss>`,
    :doc:`bugprone-short-circuit <bugprone/short-circuit>`,
    :doc:`bugprone-subprogram-trampoline <bugprone/subprogram-trampoline>`,
