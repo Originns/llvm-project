@@ -16,6 +16,7 @@
 #include "MismatchedIntentCheck.h"
 #include "MissingActionCheck.h"
 #include "MissingDefaultCheck.h"
+#include "PointerTemporaryCheck.h"
 #include "PrecisionLossCheck.h"
 #include "ShortCircuitCheck.h"
 #include "SubprogramTrampolineCheck.h"
@@ -42,6 +43,8 @@ public:
     CheckFactories.registerCheck<MissingActionCheck>("bugprone-missing-action");
     CheckFactories.registerCheck<MissingDefaultCheck>(
         "bugprone-missing-default-case");
+    CheckFactories.registerCheck<PointerTemporaryCheck>(
+        "bugprone-pointer-temporary");
     CheckFactories.registerCheck<PrecisionLossCheck>("bugprone-precision-loss");
     CheckFactories.registerCheck<ShortCircuitCheck>("bugprone-short-circuit");
     CheckFactories.registerCheck<SubprogramTrampolineCheck>(
