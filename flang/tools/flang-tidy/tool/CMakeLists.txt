@@ -17,6 +17,7 @@ add_flang_library(flangTidyMain STATIC
   FortranEvaluate
   FortranParser
   FortranSemantics
+  clangTooling
   LLVMSupport
   flangTidy
   ${ALL_FLANG_TIDY_CHECKS}
