@@ -10,6 +10,7 @@
 #include "../FlangTidyForceLinker.h"
 #include "../FlangTidyOptions.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
@@ -17,6 +18,7 @@
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
+#include <clang/Tooling/CompilationDatabase.h>
 #include <sstream>
 #include <vector>
 
@@ -26,6 +28,11 @@
 #include "flang/Frontend/TextDiagnosticBuffer.h"
 
 namespace Fortran::tidy {
+
+static llvm::cl::opt<std::string>
+    BuildPath("p", llvm::cl::desc("Build path"), llvm::cl::Optional,
+              llvm::cl::ZeroOrMore,
+              llvm::cl::sub(llvm::cl::SubCommand::getAll()));
 
 static llvm::cl::list<std::string>
     SourcePaths(llvm::cl::Positional,
@@ -41,10 +48,9 @@ static llvm::cl::opt<std::string>
 
 static llvm::cl::opt<std::string> ConfigOption(
     "config",
-    llvm::cl::desc(
-        "Specify configuration in YAML format: "
-        "-config=\"{Checks: '*', CognitiveComplexityThreshold: 30}\" "
-        "When empty, flang-tidy will look for .flang-tidy files."),
+    llvm::cl::desc("Specify configuration in YAML format: "
+                   "-config=\"{Checks: '*', ...}\" "
+                   "When empty, flang-tidy will look for .flang-tidy files."),
     llvm::cl::init(""), llvm::cl::value_desc("yaml config"));
 
 static llvm::cl::opt<std::string> ConfigFile(
@@ -150,8 +156,9 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
   return true;
 }
 
-static std::vector<std::string>
-loadFromCommandLine(int &Argc, const char *const *Argv, std::string &ErrorMsg) {
+static std::unique_ptr<clang::tooling::FixedCompilationDatabase>
+loadFromCommandLine(int &Argc, const char *const *Argv, std::string &ErrorMsg,
+                    llvm::Twine Directory = ".") {
   ErrorMsg.clear();
   if (Argc == 0)
     return {};
@@ -165,7 +172,9 @@ loadFromCommandLine(int &Argc, const char *const *Argv, std::string &ErrorMsg) {
   std::vector<std::string> StrippedArgs;
   if (!stripPositionalArgs(CommandLine, StrippedArgs, ErrorMsg))
     return {};
-  return StrippedArgs;
+  // create a FixedCompilationDatabase
+  return std::make_unique<clang::tooling::FixedCompilationDatabase>(
+      Directory, StrippedArgs);
 }
 
 static std::unique_ptr<FlangTidyOptionsProvider>
@@ -228,7 +237,8 @@ extern int flangTidyMain(int &argc, const char **argv) {
   llvm::InitLLVM X(argc, argv);
 
   std::string ErrorMessage;
-  auto Compilations = loadFromCommandLine(argc, argv, ErrorMessage);
+  std::unique_ptr<clang::tooling::CompilationDatabase> Compilations;
+  Compilations = loadFromCommandLine(argc, argv, ErrorMessage);
 
   if (!ErrorMessage.empty()) {
     llvm::outs() << ErrorMessage << "\n";
@@ -257,6 +267,23 @@ extern int flangTidyMain(int &argc, const char **argv) {
     return 0;
   }
 
+  if (!Compilations) {
+    if (!BuildPath.empty()) {
+      Compilations =
+          clang::tooling::CompilationDatabase::autoDetectFromDirectory(
+              BuildPath, ErrorMessage);
+    } else {
+      Compilations = clang::tooling::CompilationDatabase::autoDetectFromSource(
+          SourcePaths[0], ErrorMessage);
+    }
+    if (!Compilations) {
+      llvm::errs() << "Error while trying to load a compilation database:\n"
+                   << ErrorMessage << "Running without flags.\n";
+      Compilations.reset(new clang::tooling::FixedCompilationDatabase(
+          ".", std::vector<std::string>()));
+    }
+  }
+
   EffectiveOptions.sourcePaths.assign(SourcePaths.begin(), SourcePaths.end());
   EffectiveOptions.argv0 = argv[0];
 
@@ -267,6 +294,36 @@ extern int flangTidyMain(int &argc, const char **argv) {
     if (!llvm::sys::fs::exists(sourcePath)) {
       llvm::errs() << "Error: File not found: " << sourcePath << "\n";
       return 1;
+    }
+  }
+
+  if (Compilations) {
+    assert(EffectiveOptions.sourcePaths.size() == 1);
+    if (!EffectiveOptions.ExtraArgs)
+      EffectiveOptions.ExtraArgs = std::vector<std::string>();
+
+    llvm::SmallString<128> NativeFilePath;
+    llvm::sys::path::native(EffectiveOptions.sourcePaths[0], NativeFilePath);
+
+    std::vector<clang::tooling::CompileCommand> commands;
+    for (const auto &cmd : Compilations->getAllCompileCommands()) {
+      llvm::SmallString<128> CmdFilePath;
+      llvm::sys::path::native(cmd.Filename, CmdFilePath);
+      if (CmdFilePath == NativeFilePath) {
+        commands.push_back(cmd);
+        break; // use the first matching command
+      }
+    }
+
+    /* find out why this doesnt work, polymorphism issue?
+        auto commands =
+            Compilations->getCompileCommands(EffectiveOptions.sourcePaths[0]);
+    */
+    if (!commands.empty()) {
+      const auto &command = commands.front();
+      for (const auto &arg : command.CommandLine) {
+        EffectiveOptions.ExtraArgs->push_back(arg);
+      }
     }
   }
 
@@ -289,16 +346,6 @@ extern int flangTidyMain(int &argc, const char **argv) {
         EffectiveOptions.ExtraArgs = std::vector<std::string>();
       EffectiveOptions.ExtraArgs->push_back(subArg);
     }
-  }
-
-  // Add compilation args if present
-  if (!Compilations.empty()) {
-    assert(EffectiveOptions.sourcePaths.size() == 1);
-    if (!EffectiveOptions.ExtraArgs)
-      EffectiveOptions.ExtraArgs = std::vector<std::string>();
-    EffectiveOptions.ExtraArgs->insert(EffectiveOptions.ExtraArgs->end(),
-                                       Compilations.begin(),
-                                       Compilations.end());
   }
 
   // Remove anything starting with --driver-mode
