@@ -115,7 +115,7 @@ const char
 
 FlangTidyOptions FlangTidyOptions::getDefaults() {
   FlangTidyOptions Options;
-  Options.Checks = "*";
+  Options.Checks = "";
   Options.WarningsAsErrors = "";
   return Options;
 }
