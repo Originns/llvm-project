@@ -21,15 +21,15 @@ static std::unordered_map<const semantics::Symbol *, const semantics::Symbol *>
 void UnusedIntentCheck::CheckUnusedIntentHelper(
     semantics::SemanticsContext &context, const semantics::Scope &scope) {
 
-  const auto *sym = scope.symbol();
-
-  if (scope.IsModuleFile() || !sym)
+  if (scope.IsModuleFile())
     return;
 
   // ignore interfaces
-  if (const auto *details{sym->detailsIf<semantics::SubprogramDetails>()};
-      details && details->isInterface())
+  if (const auto *sym = scope.symbol();
+      sym && sym->detailsIf<semantics::SubprogramDetails>() &&
+      sym->detailsIf<semantics::SubprogramDetails>()->isInterface()) {
     return;
+  }
 
   auto WasDefined{[&context](const semantics::Symbol &symbol) {
     return context.IsSymbolDefined(symbol) ||
