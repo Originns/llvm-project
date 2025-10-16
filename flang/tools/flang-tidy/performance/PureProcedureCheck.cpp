@@ -7,13 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "PureProcedureCheck.h"
-#include "../utils/SymbolUtils.h"
 #include "flang/Evaluate/tools.h"
 #include "flang/Semantics/scope.h"
 #include "flang/Semantics/semantics.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"
+#include "utils/SymbolUtils.h"
 
 namespace Fortran::tidy::performance {
 

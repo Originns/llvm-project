@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "../FlangTidyModule.h"
-#include "../FlangTidyModuleRegistry.h"
+#include "FlangTidyModule.h"
+#include "FlangTidyModuleRegistry.h"
 #include "FunctionCognitiveComplexityCheck.h"
 #include "FunctionSizeCheck.h"
 #include "UnusedUSECheck.h"

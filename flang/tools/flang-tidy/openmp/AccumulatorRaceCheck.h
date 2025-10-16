@@ -8,7 +8,7 @@
 
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_OPENMP_ACCUMULATORRACECHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_OPENMP_ACCUMULATORRACECHECK_H
-#include "../FlangTidyCheck.h"
+#include "FlangTidyCheck.h"
 #include "flang/Parser/parse-tree.h"
 
 namespace Fortran::tidy::openmp {

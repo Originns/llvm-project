@@ -9,7 +9,7 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_MODERNIZE_AVOIDCOMMONBLOCKS_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_MODERNIZE_AVOIDCOMMONBLOCKS_H
 
-#include "../FlangTidyCheck.h"
+#include "FlangTidyCheck.h"
 
 namespace Fortran::tidy::modernize {
 

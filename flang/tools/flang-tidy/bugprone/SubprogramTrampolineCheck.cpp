@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "SubprogramTrampolineCheck.h"
-#include "../utils/CollectActualArguments.h"
 #include "flang/Evaluate/call.h"
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
@@ -15,6 +14,7 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "flang/Semantics/type.h"
+#include "utils/CollectActualArguments.h"
 
 namespace Fortran::tidy::bugprone {
 

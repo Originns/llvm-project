@@ -72,8 +72,7 @@ static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
 
 using namespace parser::literals;
 void PrecisionLossCheck::Enter(const parser::AssignmentStmt &assignment) {
-  const auto &var{std::get<parser::Variable>(assignment.t)};
-  const auto &expr{std::get<parser::Expr>(assignment.t)};
+  const auto &[var, expr] = assignment.t;
   const auto *lhs{semantics::GetExpr(context()->getSemanticsContext(), var)};
   const auto *rhs{semantics::GetExpr(context()->getSemanticsContext(), expr)};
 
