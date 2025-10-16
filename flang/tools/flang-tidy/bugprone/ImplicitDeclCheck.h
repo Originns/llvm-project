@@ -9,8 +9,8 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_IMPLICITDECLCHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_IMPLICITDECLCHECK_H
 
-#include "../FlangTidyCheck.h"
-#include "../FlangTidyContext.h"
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::bugprone {

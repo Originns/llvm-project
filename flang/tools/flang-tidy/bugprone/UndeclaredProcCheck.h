@@ -9,8 +9,8 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_UNDECLAREDPROCCHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_UNDECLAREDPROCCHECK_H
 
-#include "../FlangTidyCheck.h"
-#include "../FlangTidyContext.h"
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
 
 namespace Fortran::tidy::bugprone {
 

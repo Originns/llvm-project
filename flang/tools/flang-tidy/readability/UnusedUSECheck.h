@@ -9,7 +9,7 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_READABILITY_UNUSEUSECHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_READABILITY_UNUSEUSECHECK_H
 
-#include "../FlangTidyCheck.h"
+#include "FlangTidyCheck.h"
 #include <map>
 #include <set>
 

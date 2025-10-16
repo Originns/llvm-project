@@ -9,10 +9,8 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_PERFORMANCE_INTEGERPOWERCHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_PERFORMANCE_INTEGERPOWERCHECK_H
 
-#include "../FlangTidyCheck.h"
-#include "../FlangTidyContext.h"
+#include "FlangTidyCheck.h"
 #include "flang/Parser/parse-tree.h"
-#include "llvm/ADT/StringRef.h"
 
 namespace Fortran::tidy::performance {
 
@@ -22,7 +20,7 @@ namespace Fortran::tidy::performance {
 /// https://flang.llvm.org/@PLACEHOLDER@/pure-procedure.html
 class IntegerPowerCheck : public virtual FlangTidyCheck {
 public:
-  explicit IntegerPowerCheck(llvm::StringRef name, FlangTidyContext *context);
+  using FlangTidyCheck::FlangTidyCheck;
   virtual ~IntegerPowerCheck() = default;
 
   void Enter(const parser::Expr::Power &) override;

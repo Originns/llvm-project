@@ -6,13 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "../FlangTidyModule.h"
-#include "../FlangTidyModuleRegistry.h"
 #include "AvoidAssignStmt.h"
 #include "AvoidBackspaceStmt.h"
 #include "AvoidCommonBlocks.h"
 #include "AvoidDataConstructs.h"
 #include "AvoidPauseStmt.h"
+#include "FlangTidyModule.h"
+#include "FlangTidyModuleRegistry.h"
 
 namespace Fortran::tidy {
 namespace modernize {

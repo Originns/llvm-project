@@ -10,6 +10,8 @@ add_flang_library(flangTidy STATIC
   FlangTidyOptions.cpp
 )
 
+target_include_directories(flangTidy PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 target_link_libraries(flangTidy
   PRIVATE
   FortranSupport
