@@ -9,7 +9,7 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_SUBPROGRAMTRAMPOLINECHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_SUBPROGRAMTRAMPOLINECHECK_H
 
-#include "../FlangTidyCheck.h"
+#include "FlangTidyCheck.h"
 #include "flang/Parser/parse-tree.h"
 
 namespace Fortran::tidy::bugprone {

@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "../FlangTidyModule.h"
-#include "../FlangTidyModuleRegistry.h"
 #include "AccumulatorRaceCheck.h"
+#include "FlangTidyModule.h"
+#include "FlangTidyModuleRegistry.h"
 
 namespace Fortran::tidy {
 namespace openmp {

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "../FlangTidyModule.h"
-#include "../FlangTidyModuleRegistry.h"
+#include "FlangTidyModule.h"
+#include "FlangTidyModuleRegistry.h"
 #include "IntegerPowerCheck.h"
 #include "PureProcedureCheck.h"
 

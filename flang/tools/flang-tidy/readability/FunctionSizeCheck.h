@@ -9,7 +9,7 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_READABILITY_FUNCTIONSIZECHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_READABILITY_FUNCTIONSIZECHECK_H
 
-#include "../FlangTidyCheck.h"
+#include "FlangTidyCheck.h"
 #include "flang/Parser/char-block.h"
 #include "flang/Parser/parse-tree.h"
 

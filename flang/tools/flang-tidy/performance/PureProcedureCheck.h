@@ -9,8 +9,8 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_PERFORMANCE_PUREPROCEDURECHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_PERFORMANCE_PUREPROCEDURECHECK_H
 
-#include "../FlangTidyCheck.h"
-#include "../FlangTidyContext.h"
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
 #include "flang/Parser/parse-tree.h"
 #include "llvm/ADT/StringRef.h"
 

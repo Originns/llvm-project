@@ -6,11 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "../FlangTidyModule.h"
-#include "../FlangTidyModuleRegistry.h"
 #include "ArithmeticGotoCheck.h"
 #include "ArithmeticIfStmtCheck.h"
 #include "ContiguousArrayCheck.h"
+#include "FlangTidyModule.h"
+#include "FlangTidyModuleRegistry.h"
 #include "ImplicitDeclCheck.h"
 #include "ImpliedSaveCheck.h"
 #include "MismatchedIntentCheck.h"

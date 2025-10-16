@@ -17,10 +17,6 @@
 
 namespace Fortran::tidy::performance {
 
-IntegerPowerCheck::IntegerPowerCheck(llvm::StringRef name,
-                                     FlangTidyContext *context)
-    : FlangTidyCheck{name, context} {}
-
 struct RealConstantChecker {
   bool isIntegerLike = false;
 

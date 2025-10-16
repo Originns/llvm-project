@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef FORTRAN_TIDY_UTILS_COLLECT_ACTUAL_ARGUMENTS
-#define FORTRAN_TIDY_UTILS_COLLECT_ACTUAL_ARGUMENTS
+#ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_UTILS_COLLECTACTUALARGUMENTS_H
+#define LLVM_FLANG_TOOLS_FLANG_TIDY_UTILS_COLLECTACTUALARGUMENTS_H
 
 #include "flang/Evaluate/call.h"
 #include "flang/Evaluate/traverse.h"
@@ -42,4 +42,4 @@ template ActualArgumentSet CollectActualArguments(const semantics::SomeExpr &);
 
 } // namespace Fortran::evaluate
 
-#endif // FORTRAN_TIDY_UTILS_COLLECT_ACTUAL_ARGUMENTS
+#endif // LLVM_FLANG_TOOLS_FLANG_TIDY_UTILS_COLLECTACTUALARGUMENTS_H

@@ -9,8 +9,8 @@
 #ifndef LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_UNUSEDINTENTCHECK_H
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_UNUSEDINTENTCHECK_H
 
-#include "../FlangTidyCheck.h"
-#include "../FlangTidyContext.h"
+#include "FlangTidyCheck.h"
+#include "FlangTidyContext.h"
 
 namespace Fortran::tidy::bugprone {
 
