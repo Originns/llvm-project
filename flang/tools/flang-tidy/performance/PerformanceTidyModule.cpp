@@ -9,6 +9,7 @@
 #include "FlangTidyModule.h"
 #include "FlangTidyModuleRegistry.h"
 #include "IntegerPowerCheck.h"
+#include "PossibleTemporaryCheck.h"
 #include "PureProcedureCheck.h"
 
 namespace Fortran::tidy {
@@ -19,6 +20,8 @@ public:
   void addCheckFactories(FlangTidyCheckFactories &CheckFactories) override {
     CheckFactories.registerCheck<IntegerPowerCheck>(
         "performance-integer-power");
+    CheckFactories.registerCheck<PossibleTemporaryCheck>(
+        "performance-possible-temporary");
     CheckFactories.registerCheck<PureProcedureCheck>(
         "performance-pure-procedure");
   }
