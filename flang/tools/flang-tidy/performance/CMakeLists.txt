@@ -1,6 +1,7 @@
 add_flang_library(flangTidyPerformanceModule STATIC
   IntegerPowerCheck.cpp
   PerformanceTidyModule.cpp
+  PossibleTemporaryCheck.cpp
   PureProcedureCheck.cpp
 
   LINK_LIBS
