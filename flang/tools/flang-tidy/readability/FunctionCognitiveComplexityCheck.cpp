@@ -60,6 +60,7 @@ void FunctionCognitiveComplexityCheck::Leave(
 void FunctionCognitiveComplexityCheck::Enter(const parser::DoConstruct &) {
   cognitiveComplexity_ += (1 + currentNestingLevel_);
 }
+
 void FunctionCognitiveComplexityCheck::Enter(
     const parser::IfConstruct &construct) {
   cognitiveComplexity_ += (1 + currentNestingLevel_);
