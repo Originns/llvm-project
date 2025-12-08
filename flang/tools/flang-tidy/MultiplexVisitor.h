@@ -48,8 +48,8 @@ public:
 
   template <typename T>
   bool Pre(const parser::Statement<T> &node) {
-    if (context_.IsInModuleFile(node.source))
-      return true;
+    // if (context_.IsInModuleFile(node.source))
+    //   return true;
     context_.set_location(node.source);
     for (auto &checker : checkers_) {
       checker->Enter(node);
@@ -59,8 +59,8 @@ public:
 
   template <typename T>
   bool Pre(const parser::UnlabeledStatement<T> &node) {
-    if (context_.IsInModuleFile(node.source))
-      return true;
+    // if (context_.IsInModuleFile(node.source))
+    //   return true;
     context_.set_location(node.source);
     for (auto &checker : checkers_) {
       checker->Enter(node);
@@ -70,8 +70,8 @@ public:
 
   template <typename T>
   void Post(const parser::Statement<T> &node) {
-    if (context_.IsInModuleFile(node.source))
-      return;
+    // if (context_.IsInModuleFile(node.source))
+    //   return;
     for (auto &checker : checkers_) {
       checker->Leave(node);
     }
@@ -80,8 +80,8 @@ public:
 
   template <typename T>
   void Post(const parser::UnlabeledStatement<T> &node) {
-    if (context_.IsInModuleFile(node.source))
-      return;
+    // if (context_.IsInModuleFile(node.source))
+    //   return;
     for (auto &checker : checkers_) {
       checker->Leave(node);
     }
