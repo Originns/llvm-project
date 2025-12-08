@@ -267,12 +267,18 @@ extern int flangTidyMain(int &argc, const char **argv) {
     return 0;
   }
 
+  bool usingFixed = false;
   if (!Compilations) {
+    llvm::outs() << "Searching for compilation database...\n";
     if (!BuildPath.empty()) {
+      llvm::outs() << "Using build path from command line: " << BuildPath
+                   << "\n";
       Compilations =
           clang::tooling::CompilationDatabase::autoDetectFromDirectory(
               BuildPath, ErrorMessage);
     } else {
+      llvm::outs() << "Using build path from source file: " << SourcePaths[0]
+                   << "\n";
       Compilations = clang::tooling::CompilationDatabase::autoDetectFromSource(
           SourcePaths[0], ErrorMessage);
     }
@@ -282,6 +288,9 @@ extern int flangTidyMain(int &argc, const char **argv) {
       Compilations.reset(new clang::tooling::FixedCompilationDatabase(
           ".", std::vector<std::string>()));
     }
+  } else {
+    llvm::outs() << "Using compilation database from command line.\n";
+    usingFixed = true;
   }
 
   EffectiveOptions.sourcePaths.assign(SourcePaths.begin(), SourcePaths.end());
@@ -301,11 +310,21 @@ extern int flangTidyMain(int &argc, const char **argv) {
     assert(EffectiveOptions.sourcePaths.size() == 1);
     if (!EffectiveOptions.ExtraArgs)
       EffectiveOptions.ExtraArgs = std::vector<std::string>();
+    std::vector<clang::tooling::CompileCommand> commands;
+    if (usingFixed) {
+      llvm::outs() << "Compilation database is FixedCompilationDatabase.\n";
+      // print all compile commands
+      auto fixedCommands =
+          Compilations->getCompileCommands("").front().CommandLine;
+      // remove the first argument which is the source file
+      for (size_t i = 1; i < fixedCommands.size(); ++i) {
+        EffectiveOptions.ExtraArgs->push_back(fixedCommands[i]);
+      }
+    }
 
     llvm::SmallString<128> NativeFilePath;
     llvm::sys::path::native(EffectiveOptions.sourcePaths[0], NativeFilePath);
 
-    std::vector<clang::tooling::CompileCommand> commands;
     for (const auto &cmd : Compilations->getAllCompileCommands()) {
       llvm::SmallString<128> CmdFilePath;
       llvm::sys::path::native(cmd.Filename, CmdFilePath);
@@ -358,6 +377,15 @@ extern int flangTidyMain(int &argc, const char **argv) {
                              "--driver-mode");
                        }),
         EffectiveOptions.ExtraArgs->end());
+
+    // strip -c
+    EffectiveOptions.ExtraArgs->erase(
+        std::remove_if(EffectiveOptions.ExtraArgs->begin(),
+                       EffectiveOptions.ExtraArgs->end(),
+                       [](std::string const &arg) {
+                         return llvm::StringRef(arg) == "-c";
+                       }),
+        EffectiveOptions.ExtraArgs->end());
   }
 
   // also remove --driver-mode from ExtraArgsBefore
@@ -368,6 +396,15 @@ extern int flangTidyMain(int &argc, const char **argv) {
                        [](std::string const &arg) {
                          return llvm::StringRef(arg).starts_with(
                              "--driver-mode");
+                       }),
+        EffectiveOptions.ExtraArgsBefore->end());
+
+    // strip -c
+    EffectiveOptions.ExtraArgsBefore->erase(
+        std::remove_if(EffectiveOptions.ExtraArgsBefore->begin(),
+                       EffectiveOptions.ExtraArgsBefore->end(),
+                       [](std::string const &arg) {
+                         return llvm::StringRef(arg) == "-c";
                        }),
         EffectiveOptions.ExtraArgsBefore->end());
   }
