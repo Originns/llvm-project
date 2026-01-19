@@ -269,27 +269,27 @@ extern int flangTidyMain(int &argc, const char **argv) {
 
   bool usingFixed = false;
   if (!Compilations) {
-    llvm::outs() << "Searching for compilation database...\n";
+    // llvm::outs() << "Searching for compilation database...\n";
     if (!BuildPath.empty()) {
-      llvm::outs() << "Using build path from command line: " << BuildPath
-                   << "\n";
+      // llvm::outs() << "Using build path from command line: " << BuildPath
+      //              << "\n";
       Compilations =
           clang::tooling::CompilationDatabase::autoDetectFromDirectory(
               BuildPath, ErrorMessage);
     } else {
-      llvm::outs() << "Using build path from source file: " << SourcePaths[0]
-                   << "\n";
+      // llvm::outs() << "Using build path from source file: " << SourcePaths[0]
+      //              << "\n";
       Compilations = clang::tooling::CompilationDatabase::autoDetectFromSource(
           SourcePaths[0], ErrorMessage);
     }
     if (!Compilations) {
-      llvm::errs() << "Error while trying to load a compilation database:\n"
-                   << ErrorMessage << "Running without flags.\n";
+      // llvm::errs() << "Error while trying to load a compilation database:\n"
+      //              << ErrorMessage << "Running without flags.\n";
       Compilations.reset(new clang::tooling::FixedCompilationDatabase(
           ".", std::vector<std::string>()));
     }
   } else {
-    llvm::outs() << "Using compilation database from command line.\n";
+    // llvm::outs() << "Using compilation database from command line.\n";
     usingFixed = true;
   }
 
@@ -312,8 +312,8 @@ extern int flangTidyMain(int &argc, const char **argv) {
       EffectiveOptions.ExtraArgs = std::vector<std::string>();
     std::vector<clang::tooling::CompileCommand> commands;
     if (usingFixed) {
-      llvm::outs() << "Compilation database is FixedCompilationDatabase.\n";
-      // print all compile commands
+      // llvm::outs() << "Compilation database is FixedCompilationDatabase.\n";
+      //  print all compile commands
       auto fixedCommands =
           Compilations->getCompileCommands("").front().CommandLine;
       // remove the first argument which is the source file

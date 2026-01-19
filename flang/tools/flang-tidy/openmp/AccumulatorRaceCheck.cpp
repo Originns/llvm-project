@@ -10,9 +10,11 @@
 #include "flang/Evaluate/check-expression.h"
 #include "flang/Evaluate/tools.h"
 #include "flang/Parser/parse-tree.h"
+#include "flang/Parser/tools.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Frontend/OpenMP/OMP.h.inc"
 #include <algorithm>
 #include <variant>
 #include <vector>
@@ -24,14 +26,13 @@ using namespace parser::literals;
 static std::vector<llvm::SmallVector<const semantics::Symbol *, 4>>
     currentPrivate{};
 
-void AccumulatorRaceCheck::Enter(
-    const parser::OpenMPBlockConstruct &construct) {
+void AccumulatorRaceCheck::Enter(const parser::OmpBlockConstruct &construct) {
   ++inParallelRegion_;
 
   currentPrivate.push_back({});
 
-  const auto &directive = std::get<parser::OmpBeginBlockDirective>(construct.t);
-  const auto &clause = std::get<parser::OmpClauseList>(directive.t);
+  const auto &directive = construct.BeginDir();
+  const auto &clause = directive.Clauses();
 
   // only handle lastprivate, firstprivate, and private for now
   for (const auto &clause : clause.v) {
@@ -52,7 +53,7 @@ void AccumulatorRaceCheck::Enter(
         // handle Designator -> DataRef -> Name
         if (const auto *designator{
                 std::get_if<parser::Designator>(&ompObject.u)}) {
-          const auto *name = semantics::getDesignatorNameIfDataRef(*designator);
+          const auto *name = parser::GetDesignatorNameIfDataRef(*designator);
           if (name) {
             const auto *symbol = name->symbol;
             if (symbol) {
@@ -77,7 +78,7 @@ void AccumulatorRaceCheck::Enter(
         }
         if (const auto *designator{
                 std::get_if<parser::Designator>(&ompObject.u)}) {
-          const auto *name = semantics::getDesignatorNameIfDataRef(*designator);
+          const auto *name = parser::GetDesignatorNameIfDataRef(*designator);
           if (name) {
             const auto *symbol = name->symbol;
             if (symbol) {
@@ -100,7 +101,7 @@ void AccumulatorRaceCheck::Enter(
         }
         if (const auto *designator{
                 std::get_if<parser::Designator>(&ompObject.u)}) {
-          const auto *name = semantics::getDesignatorNameIfDataRef(*designator);
+          const auto *name = parser::GetDesignatorNameIfDataRef(*designator);
           if (name) {
             const auto *symbol = name->symbol;
             if (symbol) {
@@ -113,7 +114,7 @@ void AccumulatorRaceCheck::Enter(
   }
 }
 
-void AccumulatorRaceCheck::Leave(const parser::OpenMPBlockConstruct &) {
+void AccumulatorRaceCheck::Leave(const parser::OmpBlockConstruct &) {
   --inParallelRegion_;
   currentPrivate.pop_back();
 }
@@ -124,8 +125,8 @@ void AccumulatorRaceCheck::Enter(const parser::OpenMPLoopConstruct &construct) {
   // extract all symbols
   currentPrivate.push_back({}); // push a new private list
 
-  const auto &directive = std::get<parser::OmpBeginLoopDirective>(construct.t);
-  const auto &clause = std::get<parser::OmpClauseList>(directive.t);
+  const auto &directive = construct.BeginDir();
+  const auto &clause = directive.Clauses();
   for (const auto &clause : clause.v) {
     if (std::holds_alternative<parser::OmpClause::Lastprivate>(clause.u)) {
       const auto &lastprivateClause =
@@ -142,7 +143,7 @@ void AccumulatorRaceCheck::Enter(const parser::OpenMPLoopConstruct &construct) {
         }
         if (const auto *designator{
                 std::get_if<parser::Designator>(&ompObject.u)}) {
-          const auto *name = semantics::getDesignatorNameIfDataRef(*designator);
+          const auto *name = parser::GetDesignatorNameIfDataRef(*designator);
           if (name) {
             const auto *symbol = name->symbol;
             if (symbol) {
@@ -167,7 +168,7 @@ void AccumulatorRaceCheck::Enter(const parser::OpenMPLoopConstruct &construct) {
         }
         if (const auto *designator{
                 std::get_if<parser::Designator>(&ompObject.u)}) {
-          const auto *name = semantics::getDesignatorNameIfDataRef(*designator);
+          const auto *name = parser::GetDesignatorNameIfDataRef(*designator);
           if (name) {
             const auto *symbol = name->symbol;
             if (symbol) {
@@ -190,7 +191,7 @@ void AccumulatorRaceCheck::Enter(const parser::OpenMPLoopConstruct &construct) {
         }
         if (const auto *designator{
                 std::get_if<parser::Designator>(&ompObject.u)}) {
-          const auto *name = semantics::getDesignatorNameIfDataRef(*designator);
+          const auto *name = parser::GetDesignatorNameIfDataRef(*designator);
           if (name) {
             const auto *symbol = name->symbol;
             if (symbol) {
@@ -208,12 +209,19 @@ void AccumulatorRaceCheck::Leave(const parser::OpenMPLoopConstruct &) {
   currentPrivate.pop_back();
 }
 
-void AccumulatorRaceCheck::Enter(const parser::OmpAtomicUpdate &) {
-  ++inAtomicUpdate_;
+void AccumulatorRaceCheck::Enter(
+    const parser::OpenMPAtomicConstruct &construct) {
+  // atomic update?
+  if (construct.GetKind() == llvm::omp::Clause::OMPC_update) {
+    ++inAtomicUpdate_;
+  }
 }
 
-void AccumulatorRaceCheck::Leave(const parser::OmpAtomicUpdate &) {
-  --inAtomicUpdate_;
+void AccumulatorRaceCheck::Leave(
+    const parser::OpenMPAtomicConstruct &construct) {
+  if (construct.GetKind() == llvm::omp::Clause::OMPC_update) {
+    --inAtomicUpdate_;
+  }
 }
 
 void AccumulatorRaceCheck::Enter(const parser::OpenMPCriticalConstruct &) {

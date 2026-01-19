@@ -22,12 +22,12 @@ public:
   using FlangTidyCheck::FlangTidyCheck;
   virtual ~AccumulatorRaceCheck() = default;
 
-  void Enter(const parser::OpenMPBlockConstruct &) override;
-  void Leave(const parser::OpenMPBlockConstruct &) override;
+  void Enter(const parser::OmpBlockConstruct &) override;
+  void Leave(const parser::OmpBlockConstruct &) override;
   void Enter(const parser::OpenMPLoopConstruct &) override;
   void Leave(const parser::OpenMPLoopConstruct &) override;
-  void Enter(const parser::OmpAtomicUpdate &) override;
-  void Leave(const parser::OmpAtomicUpdate &) override;
+  void Enter(const parser::OpenMPAtomicConstruct &) override;
+  void Leave(const parser::OpenMPAtomicConstruct &) override;
   void Enter(const parser::OpenMPCriticalConstruct &) override;
   void Leave(const parser::OpenMPCriticalConstruct &) override;
   void Enter(const parser::AssignmentStmt &) override;
