@@ -444,8 +444,8 @@ public:
   virtual void Enter(const parser::IfStmt &) {}
   virtual void Enter(const parser::InputImpliedDo &) {}
   virtual void Enter(const parser::Name &) {}
-  virtual void Enter(const parser::OmpAtomicUpdate &) {}
-  virtual void Enter(const parser::OpenMPBlockConstruct &) {}
+  virtual void Enter(const parser::OpenMPAtomicConstruct &) {}
+  virtual void Enter(const parser::OmpBlockConstruct &) {}
   virtual void Enter(const parser::OpenMPCriticalConstruct &) {}
   virtual void Enter(const parser::OpenMPLoopConstruct &) {}
   virtual void Enter(const parser::OutputImpliedDo &) {}
@@ -471,8 +471,8 @@ public:
   virtual void Leave(const parser::InquireStmt &) {}
   virtual void Leave(const parser::LockStmt &) {}
   virtual void Leave(const parser::Name &) {}
-  virtual void Leave(const parser::OmpAtomicUpdate &) {}
-  virtual void Leave(const parser::OpenMPBlockConstruct &) {}
+  virtual void Leave(const parser::OpenMPAtomicConstruct &) {}
+  virtual void Leave(const parser::OmpBlockConstruct &) {}
   virtual void Leave(const parser::OpenMPCriticalConstruct &) {}
   virtual void Leave(const parser::OpenMPLoopConstruct &) {}
   virtual void Leave(const parser::OpenStmt &) {}
