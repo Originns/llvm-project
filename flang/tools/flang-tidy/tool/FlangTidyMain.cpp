@@ -9,6 +9,12 @@
 #include "../FlangTidy.h"
 #include "../FlangTidyForceLinker.h"
 #include "../FlangTidyOptions.h"
+#include "clang/Basic/Diagnostic.h"
+#include "clang/Driver/Compilation.h"
+#include "clang/Driver/Driver.h"
+#include "clang/Tooling/CompilationDatabase.h"
+#include "clang/Tooling/Tooling.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/CommandLine.h"
@@ -17,15 +23,11 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
 #include <cassert>
 #include <clang/Tooling/CompilationDatabase.h>
 #include <sstream>
 #include <vector>
-
-// Frontend driver
-#include "flang/Frontend/CompilerInstance.h"
-#include "flang/Frontend/CompilerInvocation.h"
-#include "flang/Frontend/TextDiagnosticBuffer.h"
 
 namespace Fortran::tidy {
 
@@ -82,101 +84,6 @@ static llvm::cl::opt<std::string>
                                     "to turn warnings into errors"),
                      llvm::cl::init(""));
 
-static std::string GetFlangToolCommand() {
-  static int Dummy;
-  std::string FlangExecutable =
-      llvm::sys::fs::getMainExecutable("flang", (void *)&Dummy);
-  llvm::SmallString<128> FlangToolPath;
-  FlangToolPath = llvm::sys::path::parent_path(FlangExecutable);
-  llvm::sys::path::append(FlangToolPath, "flang-tool");
-  return std::string(FlangToolPath);
-}
-
-static bool stripPositionalArgs(std::vector<const char *> Args,
-                                std::vector<std::string> &Result,
-                                std::string &ErrorMsg) {
-  auto flang = std::make_unique<Fortran::frontend::CompilerInstance>();
-
-  // Create diagnostics engine
-  flang->createDiagnostics();
-  if (!flang->hasDiagnostics()) {
-    llvm::errs() << "Failed to create diagnostics engine\n";
-    return false;
-  }
-
-  // Capture diagnostics
-  frontend::TextDiagnosticBuffer *diagsBuffer =
-      new frontend::TextDiagnosticBuffer;
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> diagID(
-      new clang::DiagnosticIDs());
-  clang::DiagnosticOptions diagOpts;
-  clang::DiagnosticsEngine diags(diagID, diagOpts, diagsBuffer);
-
-  // Insert Flang tool command
-  std::string Argv0 = GetFlangToolCommand();
-  Args.insert(Args.begin(), Argv0.c_str());
-
-  // Add a dummy file to ensure at least one compilation job
-  Args.push_back("placeholder.f90");
-
-  // Remove -c flags if present
-  Args.erase(std::remove_if(
-                 Args.begin(), Args.end(),
-                 [](const char *arg) { return llvm::StringRef(arg) == "-c"; }),
-             Args.end());
-
-  // Create compiler invocation
-  bool success = Fortran::frontend::CompilerInvocation::createFromArgs(
-      flang->getInvocation(), Args, diags, Argv0.c_str());
-
-  if (!success) {
-    ErrorMsg = "Failed to create compiler invocation\n";
-    // Flush diagnostic
-    diagsBuffer->flushDiagnostics(flang->getDiagnostics());
-    return false;
-  }
-
-  // Get the list of input files from Flang's frontend options
-  std::vector<std::string> inputs;
-  for (const auto &input : flang->getFrontendOpts().inputs) {
-    inputs.push_back(input.getFile().str());
-  }
-
-  if (inputs.empty()) {
-    ErrorMsg = "warning: no compile jobs found\n";
-    return false;
-  }
-
-  // Remove input files from Args
-  std::vector<const char *>::iterator End = llvm::remove_if(
-      Args, [&](llvm::StringRef S) { return llvm::is_contained(inputs, S); });
-
-  // Store the filtered arguments
-  Result = std::vector<std::string>(Args.begin(), End);
-  return true;
-}
-
-static std::unique_ptr<clang::tooling::FixedCompilationDatabase>
-loadFromCommandLine(int &Argc, const char *const *Argv, std::string &ErrorMsg,
-                    llvm::Twine Directory = ".") {
-  ErrorMsg.clear();
-  if (Argc == 0)
-    return {};
-  const char *const *DoubleDash =
-      std::find(Argv, Argv + Argc, llvm::StringRef("--"));
-  if (DoubleDash == Argv + Argc)
-    return {};
-  std::vector<const char *> CommandLine(DoubleDash + 1, Argv + Argc);
-  Argc = DoubleDash - Argv;
-
-  std::vector<std::string> StrippedArgs;
-  if (!stripPositionalArgs(CommandLine, StrippedArgs, ErrorMsg))
-    return {};
-  // create a FixedCompilationDatabase
-  return std::make_unique<clang::tooling::FixedCompilationDatabase>(
-      Directory, StrippedArgs);
-}
-
 static std::unique_ptr<FlangTidyOptionsProvider>
 createOptionsProvider(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS) {
   FlangTidyGlobalOptions GlobalOptions;
@@ -185,12 +92,10 @@ createOptionsProvider(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS) {
 
   FlangTidyOptions OverrideOptions;
   if (!CheckOption.empty())
-    OverrideOptions.Checks =
-        CheckOption; // This completely overrides, not merges
+    OverrideOptions.Checks = CheckOption;
 
   if (!WarningsAsErrors.empty())
-    OverrideOptions.WarningsAsErrors =
-        WarningsAsErrors; // This completely overrides, not merges
+    OverrideOptions.WarningsAsErrors = WarningsAsErrors;
 
   auto LoadConfig =
       [&](llvm::StringRef Configuration,
@@ -233,12 +138,46 @@ createOptionsProvider(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS) {
       std::move(OverrideOptions), std::move(FS));
 }
 
+static void filterArgsForFC1(std::vector<std::string> &Args) {
+  if (Args.empty())
+    return;
+
+  llvm::SmallVector<const char *, 64> Argv;
+  Argv.reserve(Args.size());
+  for (const auto &S : Args)
+    Argv.push_back(S.c_str());
+
+  unsigned MissingArgIndex = 0, MissingArgCount = 0;
+
+  llvm::opt::InputArgList Parsed = clang::getDriverOptTable().ParseArgs(
+      Argv, MissingArgIndex, MissingArgCount,
+      llvm::opt::Visibility(clang::options::FC1Option));
+
+  llvm::opt::ArgStringList Rendered;
+  for (const llvm::opt::Arg *A : Parsed) {
+    // drop invalid options
+    if (A->getOption().getKind() == llvm::opt::Option::UnknownClass)
+      continue;
+
+    A->render(Parsed, Rendered);
+  }
+
+  std::vector<std::string> Filtered;
+  Filtered.reserve(Rendered.size());
+  for (const char *S : Rendered) {
+    Filtered.emplace_back(S);
+  }
+
+  Args.swap(Filtered);
+}
+
 extern int flangTidyMain(int &argc, const char **argv) {
   llvm::InitLLVM X(argc, argv);
 
   std::string ErrorMessage;
   std::unique_ptr<clang::tooling::CompilationDatabase> Compilations;
-  Compilations = loadFromCommandLine(argc, argv, ErrorMessage);
+  Compilations = clang::tooling::FixedCompilationDatabase::loadFromCommandLine(
+      argc, argv, ErrorMessage);
 
   if (!ErrorMessage.empty()) {
     llvm::outs() << ErrorMessage << "\n";
@@ -313,7 +252,6 @@ extern int flangTidyMain(int &argc, const char **argv) {
     std::vector<clang::tooling::CompileCommand> commands;
     if (usingFixed) {
       // llvm::outs() << "Compilation database is FixedCompilationDatabase.\n";
-      //  print all compile commands
       auto fixedCommands =
           Compilations->getCompileCommands("").front().CommandLine;
       // remove the first argument which is the source file
@@ -330,14 +268,10 @@ extern int flangTidyMain(int &argc, const char **argv) {
       llvm::sys::path::native(cmd.Filename, CmdFilePath);
       if (CmdFilePath == NativeFilePath) {
         commands.push_back(cmd);
-        break; // use the first matching command
+        break;
       }
     }
 
-    /* find out why this doesnt work, polymorphism issue?
-        auto commands =
-            Compilations->getCompileCommands(EffectiveOptions.sourcePaths[0]);
-    */
     if (!commands.empty()) {
       const auto &command = commands.front();
       for (const auto &arg : command.CommandLine) {
@@ -346,7 +280,6 @@ extern int flangTidyMain(int &argc, const char **argv) {
     }
   }
 
-  // Add extra args from command line (these override config file settings)
   for (const auto &arg : ArgsBefore) {
     std::istringstream stream(arg);
     std::string subArg;
@@ -367,47 +300,11 @@ extern int flangTidyMain(int &argc, const char **argv) {
     }
   }
 
-  // Remove anything starting with --driver-mode
-  if (EffectiveOptions.ExtraArgs) {
-    EffectiveOptions.ExtraArgs->erase(
-        std::remove_if(EffectiveOptions.ExtraArgs->begin(),
-                       EffectiveOptions.ExtraArgs->end(),
-                       [](std::string const &arg) {
-                         return llvm::StringRef(arg).starts_with(
-                             "--driver-mode");
-                       }),
-        EffectiveOptions.ExtraArgs->end());
+  if (EffectiveOptions.ExtraArgs)
+    filterArgsForFC1(*EffectiveOptions.ExtraArgs);
 
-    // strip -c
-    EffectiveOptions.ExtraArgs->erase(
-        std::remove_if(EffectiveOptions.ExtraArgs->begin(),
-                       EffectiveOptions.ExtraArgs->end(),
-                       [](std::string const &arg) {
-                         return llvm::StringRef(arg) == "-c";
-                       }),
-        EffectiveOptions.ExtraArgs->end());
-  }
-
-  // also remove --driver-mode from ExtraArgsBefore
-  if (EffectiveOptions.ExtraArgsBefore) {
-    EffectiveOptions.ExtraArgsBefore->erase(
-        std::remove_if(EffectiveOptions.ExtraArgsBefore->begin(),
-                       EffectiveOptions.ExtraArgsBefore->end(),
-                       [](std::string const &arg) {
-                         return llvm::StringRef(arg).starts_with(
-                             "--driver-mode");
-                       }),
-        EffectiveOptions.ExtraArgsBefore->end());
-
-    // strip -c
-    EffectiveOptions.ExtraArgsBefore->erase(
-        std::remove_if(EffectiveOptions.ExtraArgsBefore->begin(),
-                       EffectiveOptions.ExtraArgsBefore->end(),
-                       [](std::string const &arg) {
-                         return llvm::StringRef(arg) == "-c";
-                       }),
-        EffectiveOptions.ExtraArgsBefore->end());
-  }
+  if (EffectiveOptions.ExtraArgsBefore)
+    filterArgsForFC1(*EffectiveOptions.ExtraArgsBefore);
 
   return runFlangTidy(EffectiveOptions);
 }
