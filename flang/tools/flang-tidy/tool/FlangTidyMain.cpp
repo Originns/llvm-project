@@ -12,6 +12,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/ADT/SmallVector.h"
@@ -171,13 +172,175 @@ static void filterArgsForFC1(std::vector<std::string> &Args) {
   Args.swap(Filtered);
 }
 
+struct CompileJobAnalyzer {
+  llvm::SmallVector<std::string, 2> Inputs;
+
+  void run(const clang::driver::Action *A) { runImpl(A, false); }
+
+private:
+  void runImpl(const clang::driver::Action *A, bool Collect) {
+    bool CollectChildren = Collect;
+    switch (A->getKind()) {
+    case clang::driver::Action::CompileJobClass:
+    case clang::driver::Action::PrecompileJobClass:
+      CollectChildren = true;
+      break;
+
+    case clang::driver::Action::InputClass:
+      if (Collect) {
+        const auto *IA = llvm::cast<clang::driver::InputAction>(A);
+        Inputs.push_back(std::string(IA->getInputArg().getSpelling()));
+      }
+      break;
+
+    default:
+      // Don't care about others
+      break;
+    }
+
+    for (const clang::driver::Action *AI : A->inputs())
+      runImpl(AI, CollectChildren);
+  }
+};
+
+class UnusedInputDiagConsumer : public clang::DiagnosticConsumer {
+public:
+  UnusedInputDiagConsumer(DiagnosticConsumer &Other) : Other(Other) {}
+
+  void HandleDiagnostic(clang::DiagnosticsEngine::Level DiagLevel,
+                        const clang::Diagnostic &Info) override {
+    if (Info.getID() == clang::diag::warn_drv_input_file_unused) {
+      // Arg 1 for this diagnostic is the option that didn't get used.
+      UnusedInputs.push_back(Info.getArgStdStr(0));
+    } else if (DiagLevel >= clang::DiagnosticsEngine::Error) {
+      // If driver failed to create compilation object, show the diagnostics
+      // to user.
+      Other.HandleDiagnostic(DiagLevel, Info);
+    }
+  }
+
+  DiagnosticConsumer &Other;
+  llvm::SmallVector<std::string, 2> UnusedInputs;
+};
+
+std::string GetClangToolCommand() {
+  static int Dummy;
+  std::string ClangExecutable =
+      llvm::sys::fs::getMainExecutable("flang", (void *)&Dummy);
+  llvm::SmallString<128> ClangToolPath;
+  ClangToolPath = llvm::sys::path::parent_path(ClangExecutable);
+  llvm::sys::path::append(ClangToolPath, "flang-tool");
+  return std::string(ClangToolPath);
+}
+
+static bool stripPositionalArgs(std::vector<const char *> Args,
+                                std::vector<std::string> &Result,
+                                std::string &ErrorMsg) {
+
+  clang::DiagnosticOptions DiagOpts;
+  llvm::raw_string_ostream Output(ErrorMsg);
+  clang::TextDiagnosticPrinter DiagnosticPrinter(Output, DiagOpts);
+  UnusedInputDiagConsumer DiagClient(DiagnosticPrinter);
+  clang::DiagnosticsEngine Diagnostics(clang::DiagnosticIDs::create(), DiagOpts,
+                                       &DiagClient, false);
+
+  // The clang executable path isn't required since the jobs the driver builds
+  // will not be executed.
+  std::unique_ptr<clang::driver::Driver> NewDriver(new clang::driver::Driver(
+      "flang", llvm::sys::getDefaultTargetTriple(),
+      Diagnostics));
+  NewDriver->setCheckInputsExist(false);
+
+  // This becomes the new argv[0]. The value is used to detect libc++ include
+  // dirs on Mac, it isn't used for other platforms.
+  std::string Argv0 = GetClangToolCommand();
+  Args.insert(Args.begin(), Argv0.c_str());
+
+  // By adding -c, we force the driver to treat compilation as the last phase.
+  // It will then issue warnings via Diagnostics about un-used options that
+  // would have been used for linking. If the user provided a compiler name as
+  // the original argv[0], this will be treated as a linker input thanks to
+  // insertng a new argv[0] above. All un-used options get collected by
+  // UnusedInputdiagConsumer and get stripped out later.
+  Args.push_back("-c");
+
+  // Put a dummy C++ file on to ensure there's at least one compile job for the
+  // driver to construct. If the user specified some other argument that
+  // prevents compilation, e.g. -E or something like -version, we may still end
+  // up with no jobs but then this is the user's fault.
+  Args.push_back("placeholder.f90");
+
+  // llvm::erase_if(Args, FilterUnusedFlags());
+
+  const std::unique_ptr<clang::driver::Compilation> Compilation(
+      NewDriver->BuildCompilation(Args));
+  if (!Compilation)
+    return false;
+
+  const clang::driver::JobList &Jobs = Compilation->getJobs();
+
+  CompileJobAnalyzer CompileAnalyzer;
+
+  for (const auto &Cmd : Jobs) {
+    // Collect only for Assemble, Backend, and Compile jobs. If we do all jobs
+    // we get duplicates since Link jobs point to Assemble jobs as inputs.
+    // -flto* flags make the BackendJobClass, which still needs analyzer.
+    if (Cmd.getSource().getKind() == clang::driver::Action::AssembleJobClass ||
+        Cmd.getSource().getKind() == clang::driver::Action::BackendJobClass ||
+        Cmd.getSource().getKind() == clang::driver::Action::CompileJobClass ||
+        Cmd.getSource().getKind() ==
+            clang::driver::Action::PrecompileJobClass) {
+      CompileAnalyzer.run(&Cmd.getSource());
+    }
+  }
+
+  if (CompileAnalyzer.Inputs.empty()) {
+    ErrorMsg = "warning: no compile jobs found\n";
+    return false;
+  }
+
+  // Remove all compilation input files from the command line and inputs deemed
+  // unused for compilation. This is necessary so that getCompileCommands() can
+  // construct a command line for each file.
+  std::vector<const char *>::iterator End =
+      llvm::remove_if(Args, [&](llvm::StringRef S) {
+        return llvm::is_contained(CompileAnalyzer.Inputs, S) ||
+               llvm::is_contained(DiagClient.UnusedInputs, S);
+      });
+  // Remove the -c add above as well. It will be at the end right now.
+  assert(strcmp(*(End - 1), "-c") == 0);
+  --End;
+
+  Result = std::vector<std::string>(Args.begin() + 1, End);
+  return true;
+}
+
+std::unique_ptr<clang::tooling::FixedCompilationDatabase>
+loadFromCommandLine(int &Argc, const char *const *Argv, std::string &ErrorMsg,
+                    const llvm::Twine &Directory) {
+  ErrorMsg.clear();
+  if (Argc == 0)
+    return nullptr;
+  const char *const *DoubleDash =
+      std::find(Argv, Argv + Argc, llvm::StringRef("--"));
+  if (DoubleDash == Argv + Argc)
+    return nullptr;
+  std::vector<const char *> CommandLine(DoubleDash + 1, Argv + Argc);
+  Argc = DoubleDash - Argv;
+
+  std::vector<std::string> StrippedArgs;
+  if (!stripPositionalArgs(CommandLine, StrippedArgs, ErrorMsg))
+    return nullptr;
+  return std::make_unique<clang::tooling::FixedCompilationDatabase>(
+      Directory, StrippedArgs);
+}
+
 extern int flangTidyMain(int &argc, const char **argv) {
   llvm::InitLLVM X(argc, argv);
 
   std::string ErrorMessage;
   std::unique_ptr<clang::tooling::CompilationDatabase> Compilations;
-  Compilations = clang::tooling::FixedCompilationDatabase::loadFromCommandLine(
-      argc, argv, ErrorMessage);
+  Compilations = loadFromCommandLine(argc, argv, ErrorMessage, ".");
 
   if (!ErrorMessage.empty()) {
     llvm::outs() << ErrorMessage << "\n";
