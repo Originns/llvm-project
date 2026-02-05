@@ -46,3 +46,9 @@ subroutine s7(a, p)
   integer, pointer :: p(:,:,:,:)
   p => a  ! No warning
 end subroutine s7
+
+subroutine s8(p_in, p_out)
+  integer, pointer, intent(in)  :: p_in(:)
+  integer, pointer, intent(out) :: p_out(:)
+  p_out => p_in  ! No warning
+end subroutine s8

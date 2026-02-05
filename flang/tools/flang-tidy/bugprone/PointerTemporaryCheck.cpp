@@ -33,6 +33,11 @@ void PointerTemporaryCheck::Leave(
   // lhs dummy array pointer with intent(inout/out) & rhs contiguous
   if (lhsSymbol && rhsSymbol && semantics::IsDummy(*lhsSymbol) &&
       lhsSymbol->GetShape() /* is it an array? */ &&
+      // rhs should not be a pointer dummy
+      !(semantics::IsDummy(*rhsSymbol) && rhsSymbol->attrs().test(semantics::Attr::POINTER)) &&
+      ((lhsSymbol->GetShape()->IsAssumedRank() &&
+        lhsSymbol->attrs().test(semantics::Attr::CONTIGUOUS)) ||
+       !lhsSymbol->GetShape()->IsAssumedRank()) &&
       lhsSymbol->attrs().test(semantics::Attr::POINTER) &&
       !lhsSymbol->attrs().HasAny(
           {semantics::Attr::INTENT_IN, semantics::Attr::VALUE}) &&
