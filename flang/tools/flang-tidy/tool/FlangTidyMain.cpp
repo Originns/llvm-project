@@ -223,7 +223,7 @@ public:
   llvm::SmallVector<std::string, 2> UnusedInputs;
 };
 
-std::string GetClangToolCommand() {
+static std::string GetClangToolCommand() {
   static int Dummy;
   std::string ClangExecutable =
       llvm::sys::fs::getMainExecutable("flang", (void *)&Dummy);
@@ -232,6 +232,10 @@ std::string GetClangToolCommand() {
   llvm::sys::path::append(ClangToolPath, "flang-tool");
   return std::string(ClangToolPath);
 }
+
+struct FilterOutputs {
+  bool operator()(llvm::StringRef S) { return (S == "-o"); }
+};
 
 static bool stripPositionalArgs(std::vector<const char *> Args,
                                 std::vector<std::string> &Result,
@@ -247,8 +251,7 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
   // The clang executable path isn't required since the jobs the driver builds
   // will not be executed.
   std::unique_ptr<clang::driver::Driver> NewDriver(new clang::driver::Driver(
-      "flang", llvm::sys::getDefaultTargetTriple(),
-      Diagnostics));
+      "flang", llvm::sys::getDefaultTargetTriple(), Diagnostics));
   NewDriver->setCheckInputsExist(false);
 
   // This becomes the new argv[0]. The value is used to detect libc++ include
@@ -270,7 +273,7 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
   // up with no jobs but then this is the user's fault.
   Args.push_back("placeholder.f90");
 
-  // llvm::erase_if(Args, FilterUnusedFlags());
+  llvm::erase_if(Args, FilterOutputs());
 
   const std::unique_ptr<clang::driver::Compilation> Compilation(
       NewDriver->BuildCompilation(Args));
@@ -315,7 +318,7 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
   return true;
 }
 
-std::unique_ptr<clang::tooling::FixedCompilationDatabase>
+static std::unique_ptr<clang::tooling::FixedCompilationDatabase>
 loadFromCommandLine(int &Argc, const char *const *Argv, std::string &ErrorMsg,
                     const llvm::Twine &Directory) {
   ErrorMsg.clear();
