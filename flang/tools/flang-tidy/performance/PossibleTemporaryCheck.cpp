@@ -67,6 +67,19 @@ void PossibleTemporaryCheck::Enter(const parser::CallStmt &callStmt) {
                 *dummy, context()->getSemanticsContext().foldingContext()))
           continue;
 
+        if (!arg->sourceLocation()) {
+          // give the source location of the call statement if the argument does
+          // not have one e.g. if it's the "this" argument of a type bound
+          // procedure
+          Say(callStmt.source,
+              "Argument may be passed as a temporary"_warn_en_US)
+              .Attach(parser::Message(
+                  dummy->name(),
+                  "Dummy argument '%s' is contiguous"_because_en_US,
+                  dummy->name()));
+          continue;
+        }
+
         // warn
         Say(*arg->sourceLocation(),
             "Argument may be passed as a temporary"_warn_en_US)
