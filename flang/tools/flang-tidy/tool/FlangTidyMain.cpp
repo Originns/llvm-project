@@ -440,7 +440,20 @@ extern int flangTidyMain(int &argc, const char **argv) {
 
     if (!commands.empty()) {
       const auto &command = commands.front();
-      for (const auto &arg : command.CommandLine) {
+      // Start from i = 1 to skip the compiler executable path
+      for (size_t i = 1; i < command.CommandLine.size(); ++i) {
+        const std::string &arg = command.CommandLine[i];
+
+        // Optional but recommended: Skip the input file and output flags
+        // to avoid "multiple input files" or "unused argument" warnings
+        if (arg == "-c" || arg == "-o") {
+          if (arg == "-o")
+            i++; // skip the output filename too
+          continue;
+        }
+        if (arg == command.Filename)
+          continue;
+
         EffectiveOptions.ExtraArgs->push_back(arg);
       }
     }
