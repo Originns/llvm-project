@@ -21,6 +21,7 @@ Flang-Tidy Checks
    :doc:`bugprone-contiguous-array <bugprone/contiguous-array>`,
    :doc:`bugprone-implicit-declaration <bugprone/implicit-declaration>`,
    :doc:`bugprone-implied-save <bugprone/implied-save>`,
+   :doc:`bugprone-logical-precedence <bugprone/logical-precedence>`,
    :doc:`bugprone-mismatched-intent <bugprone/mismatched-intent>`,
    :doc:`bugprone-missing-action <bugprone/missing-action>`,
    :doc:`bugprone-missing-default-case <bugprone/missing-default-case>`,

@@ -5,6 +5,7 @@ add_flang_library(flangTidyBugproneModule STATIC
   ContiguousArrayCheck.cpp
   ImplicitDeclCheck.cpp
   ImpliedSaveCheck.cpp
+  LogicalPrecedenceCheck.cpp
   MismatchedIntentCheck.cpp
   MissingActionCheck.cpp
   MissingDefaultCheck.cpp
