@@ -13,6 +13,7 @@
 #include "FlangTidyModuleRegistry.h"
 #include "ImplicitDeclCheck.h"
 #include "ImpliedSaveCheck.h"
+#include "LogicalPrecedenceCheck.h"
 #include "MismatchedIntentCheck.h"
 #include "MissingActionCheck.h"
 #include "MissingDefaultCheck.h"
@@ -38,6 +39,8 @@ public:
     CheckFactories.registerCheck<ImplicitDeclCheck>(
         "bugprone-implicit-declaration");
     CheckFactories.registerCheck<ImpliedSaveCheck>("bugprone-implied-save");
+    CheckFactories.registerCheck<LogicalPrecedenceCheck>(
+        "bugprone-logical-precedence");
     CheckFactories.registerCheck<MismatchedIntentCheck>(
         "bugprone-mismatched-intent");
     CheckFactories.registerCheck<MissingActionCheck>("bugprone-missing-action");
