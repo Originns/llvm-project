@@ -30,7 +30,8 @@ void SubprogramTrampolineCheck::Enter(const parser::CallStmt &callStmt) {
           continue;
         const auto proc = std::get<evaluate::ProcedureDesignator>(argExpr->u);
         if (const auto *symbol{proc.GetSymbol()}) {
-          if (symbol->has<semantics::SubprogramDetails>()) {
+          if (auto *details = symbol->detailsIf<semantics::SubprogramDetails>();
+              details && details->isInterface()) {
             const auto &owner = symbol->owner();
             if (owner.IsModule())
               continue;
@@ -60,7 +61,8 @@ void SubprogramTrampolineCheck::Enter(const parser::Expr &e) {
           continue;
         const auto proc = std::get<evaluate::ProcedureDesignator>(argExpr->u);
         if (const auto *symbol{proc.GetSymbol()}) {
-          if (symbol->has<semantics::SubprogramDetails>()) {
+          if (auto *details = symbol->detailsIf<semantics::SubprogramDetails>();
+              details && details->isInterface()) {
             const auto &owner = symbol->owner();
             if (owner.IsModule())
               continue;
