@@ -175,6 +175,66 @@ buildMixedIntentReplacement(const utils::SourceLineInfo &line,
   return firstLine + "\n" + secondLine;
 }
 
+static std::optional<std::string> buildMissingIntentInsertionForMixedDecl(
+    const utils::SourceLineInfo &line, llvm::StringRef targetName,
+    llvm::StringRef intentSpec, llvm::StringRef explicitIndentation) {
+  const std::string lineText = line.lineText;
+  const std::size_t commentPos = lineText.find('!');
+  const std::string declPart = commentPos == std::string::npos
+                                   ? lineText
+                                   : lineText.substr(0, commentPos);
+
+  const std::size_t doubleColonPos = declPart.find("::");
+  if (doubleColonPos == std::string::npos) {
+    return std::nullopt;
+  }
+
+  std::size_t rhsStart = doubleColonPos + 2;
+  while (rhsStart < declPart.size() &&
+         std::isspace(static_cast<unsigned char>(declPart[rhsStart]))) {
+    ++rhsStart;
+  }
+  const llvm::StringRef rhs = llvm::StringRef{declPart}.substr(rhsStart).trim();
+  auto parsedNames = parseSimpleEntityList(rhs);
+  if (!parsedNames || parsedNames->size() < 2) {
+    return std::nullopt;
+  }
+
+  const std::string targetLower = toLowerCopy(targetName);
+  bool foundTarget{false};
+  for (const std::string &name : *parsedNames) {
+    if (toLowerCopy(name) == targetLower) {
+      foundTarget = true;
+      break;
+    }
+  }
+  if (!foundTarget) {
+    return std::nullopt;
+  }
+
+  auto insertPos =
+      utils::findDeclAttrInsertionPoint(line.lineText, line.lineBegin);
+  if (!insertPos) {
+    return std::nullopt;
+  }
+  const std::ptrdiff_t insertOffset = *insertPos - line.lineBegin;
+  std::string prefixWithDeclAndAttrs = declPart.substr(0, rhsStart);
+  if (insertOffset < 0 ||
+      static_cast<std::size_t>(insertOffset) > prefixWithDeclAndAttrs.size()) {
+    return std::nullopt;
+  }
+  prefixWithDeclAndAttrs.insert(static_cast<std::size_t>(insertOffset),
+                                ", " + intentSpec.str());
+
+  std::string indent = explicitIndentation.str();
+  if (indent.empty()) {
+    indent = utils::getLeadingWhitespace(prefixWithDeclAndAttrs);
+  }
+  return "\n" + indent +
+         llvm::StringRef{prefixWithDeclAndAttrs}.ltrim(" \t").str() +
+         targetName.str();
+}
+
 static bool hasSingleEntityAfterDoubleColon(const std::string &lineText) {
   const std::size_t doubleColonPos = lineText.find("::");
   if (doubleColonPos == std::string::npos) {
@@ -316,11 +376,18 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
                                         fix);
             }
           } else {
-
+            const std::string indentFromSource =
+                utils::getLeadingWhitespaceFromSourceLine(context,
+                                                          symbol.name());
             const std::string fixText =
-                "\n" + utils::getLeadingWhitespace(line->lineText) +
-                intentSpec + utils::getDoubleColonSeparator(line->lineText) +
-                symbol.name().ToString();
+                buildMissingIntentInsertionForMixedDecl(
+                    *line, symbol.name().ToString(), intentSpec,
+                    indentFromSource)
+                    .value_or("\n" +
+                              utils::getLeadingWhitespace(line->lineText) +
+                              intentSpec +
+                              utils::getDoubleColonSeparator(line->lineText) +
+                              symbol.name().ToString());
             Fortran::tidy::FixItHint fix =
                 Fortran::tidy::FixItHint::CreateInsertion(
                     parser::CharBlock{line->lineEnd, line->lineEnd}, fixText);
