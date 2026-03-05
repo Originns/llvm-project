@@ -85,6 +85,10 @@ static llvm::cl::opt<std::string>
                                     "to turn warnings into errors"),
                      llvm::cl::init(""));
 
+static llvm::cl::opt<bool>
+    ApplyFixes("fix", llvm::cl::desc("Apply suggested fixes in-place"),
+               llvm::cl::init(false));
+
 static std::unique_ptr<FlangTidyOptionsProvider>
 createOptionsProvider(llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS) {
   FlangTidyGlobalOptions GlobalOptions;
@@ -400,6 +404,7 @@ extern int flangTidyMain(int &argc, const char **argv) {
 
   EffectiveOptions.sourcePaths.assign(SourcePaths.begin(), SourcePaths.end());
   EffectiveOptions.argv0 = argv[0];
+  EffectiveOptions.Fix = ApplyFixes;
 
   EffectiveOptions.parseChecksString();
   EffectiveOptions.parseWarningsAsErrorsString();

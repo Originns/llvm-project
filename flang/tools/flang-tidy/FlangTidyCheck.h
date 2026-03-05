@@ -453,6 +453,7 @@ public:
   virtual void Enter(const parser::SelectRankConstruct &) {}
   virtual void Enter(const parser::SelectTypeConstruct &) {}
   virtual void Enter(const parser::SubroutineSubprogram &) {}
+  virtual void Enter(const parser::TypeDeclarationStmt &) {}
   virtual void Enter(const parser::UseStmt &) {}
   virtual void Leave(const parser::AllocateStmt &) {}
   virtual void Leave(const parser::AssignmentStmt &) {}

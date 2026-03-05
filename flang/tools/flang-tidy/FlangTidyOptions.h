@@ -92,6 +92,7 @@ struct FlangTidyOptions {
   std::vector<std::string>
       enabledWarningsAsErrors; // Parsed from WarningsAsErrors string
   const char *argv0 = nullptr; // Set by command line
+  bool Fix{false};             // Apply recorded fixes in-place
 
   /// Parse the Checks string into enabledChecks vector
   void parseChecksString();

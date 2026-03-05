@@ -22,7 +22,7 @@ public:
   using FlangTidyCheck::FlangTidyCheck;
   virtual ~ImpliedSaveCheck() = default;
 
-  void Enter(const parser::EntityDecl &) override;
+  void Enter(const parser::TypeDeclarationStmt &) override;
 };
 
 } // namespace Fortran::tidy::bugprone

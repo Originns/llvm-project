@@ -11,11 +11,18 @@
 
 #include "FlangTidyOptions.h"
 #include "flang/Semantics/semantics.h"
+#include "utils/FixIt.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringRef.h"
 #include <clang/Basic/Diagnostic.h>
 
 namespace Fortran::tidy {
+
+struct RecordedFixIt {
+  std::string CheckName;
+  parser::CharBlock Location; // where the fix applies
+  FixItHint Hint;
+};
 
 /// This class is used to manage the context for Flang Tidy checks.
 /// It contains the enabled checks and the semantics context.
@@ -77,7 +84,15 @@ public:
   /// Get the FlangTidy options
   const FlangTidyOptions &getOptions() const { return Options; }
 
+  void addFixIt(llvm::StringRef CheckName, parser::CharBlock Loc,
+                const FixItHint &Hint) {
+    FixIts.emplace_back(RecordedFixIt{CheckName.str(), Loc, Hint});
+  }
+
+  const std::vector<RecordedFixIt> &getFixIts() const { return FixIts; }
+
 public:
+  std::vector<RecordedFixIt> FixIts;
   /// List of enabled checks.
   llvm::SmallSet<llvm::StringRef, 16> Checks;
   /// List of checks for which to turn warnings into errors.

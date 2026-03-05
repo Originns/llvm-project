@@ -23,10 +23,17 @@
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
 #include <clang/Basic/DiagnosticOptions.h>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
+#include <system_error>
+#include <vector>
 
 LLVM_INSTANTIATE_REGISTRY(Fortran::tidy::FlangTidyModuleRegistry)
 
@@ -195,6 +202,196 @@ static void filterMessagesWithNoLint(parser::Messages &messages,
   }
 }
 
+struct ResolvedFixEdit {
+  std::string Path;
+  std::size_t Begin{0};
+  std::size_t End{0};
+  std::string Replacement;
+  std::string BaseContent;
+};
+
+static std::optional<ResolvedFixEdit>
+resolveFixEdit(const RecordedFixIt &fix, semantics::SemanticsContext &context) {
+  const bool hasRemoveLocation = fix.Hint.RemoveRange.begin() != nullptr;
+  parser::CharBlock anchor =
+      hasRemoveLocation ? fix.Hint.RemoveRange : fix.Location;
+  if (anchor.begin() == nullptr) {
+    return std::nullopt;
+  }
+
+  const auto &cookedSources = context.allCookedSources();
+  auto provenanceRange = cookedSources.GetProvenanceRange(anchor);
+  // Zero-length insertion anchors can fail direct lookup; probe one char.
+  if (!provenanceRange && anchor.empty()) {
+    provenanceRange =
+        cookedSources.GetProvenanceRange(parser::CharBlock{anchor.begin(), 1});
+  }
+  if (!provenanceRange) {
+    return std::nullopt;
+  }
+
+  std::size_t anchorOffset{0};
+  const auto &allSources = cookedSources.allSources();
+  const auto *sourceFile =
+      allSources.GetSourceFile(provenanceRange->start(), &anchorOffset);
+  if (!sourceFile) {
+    return std::nullopt;
+  }
+
+  const auto contentArray = sourceFile->content();
+  const llvm::StringRef content{contentArray.data(), contentArray.size()};
+  if (anchorOffset > content.size()) {
+    return std::nullopt;
+  }
+
+  // Convert edit boundaries through provenance, not raw pointer arithmetic.
+  // FixIt locations can point into cooked source buffers.
+  std::size_t replaceBegin{anchorOffset};
+  std::size_t replaceEnd{anchorOffset};
+
+  if (!fix.Hint.RemoveRange.empty()) {
+    auto removeRange = cookedSources.GetProvenanceRange(fix.Hint.RemoveRange);
+    if (!removeRange || removeRange->empty()) {
+      return std::nullopt;
+    }
+
+    const auto *beginFile =
+        allSources.GetSourceFile(removeRange->start(), &replaceBegin);
+    if (!beginFile || beginFile != sourceFile) {
+      return std::nullopt;
+    }
+
+    std::size_t lastOffset{0};
+    const auto lastProv = removeRange->start() + (removeRange->size() - 1);
+    const auto *endFile = allSources.GetSourceFile(lastProv, &lastOffset);
+    if (!endFile || endFile != sourceFile) {
+      return std::nullopt;
+    }
+    replaceEnd = lastOffset + 1;
+  }
+
+  if (replaceBegin > replaceEnd || replaceEnd > content.size()) {
+    return std::nullopt;
+  }
+
+  std::string replacement;
+  if (!fix.Hint.CodeToInsert.empty()) {
+    replacement = fix.Hint.CodeToInsert;
+  } else if (!fix.Hint.InsertFromRange.empty()) {
+    replacement = fix.Hint.InsertFromRange.ToString();
+  }
+
+  return ResolvedFixEdit{sourceFile->path(), replaceBegin, replaceEnd,
+                         std::move(replacement), content.str()};
+}
+
+static std::optional<std::string>
+renderFixedLine(const RecordedFixIt &fix,
+                semantics::SemanticsContext &context) {
+  auto resolved = resolveFixEdit(fix, context);
+  if (!resolved) {
+    return std::nullopt;
+  }
+  const llvm::StringRef content{resolved->BaseContent};
+  if (resolved->Begin > content.size() || resolved->End > content.size()) {
+    return std::nullopt;
+  }
+  std::size_t lineStart = resolved->Begin;
+  while (lineStart > 0 && content[lineStart - 1] != '\n') {
+    --lineStart;
+  }
+  std::size_t lineEnd = resolved->End;
+  while (lineEnd < content.size() && content[lineEnd] != '\n') {
+    ++lineEnd;
+  }
+
+  std::string fixedLine =
+      std::string(content.substr(lineStart, lineEnd - lineStart));
+
+  if (resolved->Begin < lineStart || resolved->End > lineEnd ||
+      resolved->Begin > resolved->End) {
+    return std::nullopt;
+  }
+  const std::size_t relBegin = resolved->Begin - lineStart;
+  const std::size_t relLen = resolved->End - resolved->Begin;
+  fixedLine.replace(relBegin, relLen, resolved->Replacement);
+
+  return fixedLine;
+}
+
+static std::size_t applyFixesInPlace(const std::vector<RecordedFixIt> &fixes,
+                                     semantics::SemanticsContext &context) {
+  std::map<std::string, std::vector<ResolvedFixEdit>> editsByFile;
+  std::map<std::string, std::string> fileContent;
+  std::size_t appliedCount{0};
+
+  for (const auto &fix : fixes) {
+    auto edit = resolveFixEdit(fix, context);
+    if (!edit) {
+      llvm::errs() << "warning: skipping fix with invalid location\n";
+      continue;
+    }
+    if (edit->Path.empty()) {
+      llvm::errs() << "warning: skipping fix with no associated file\n";
+      continue;
+    }
+    if (!fileContent.count(edit->Path))
+      fileContent[edit->Path] = edit->BaseContent;
+    editsByFile[edit->Path].push_back(std::move(*edit));
+  }
+
+  for (auto &[path, edits] : editsByFile) {
+    auto contentIt = fileContent.find(path);
+    if (contentIt == fileContent.end()) {
+      continue;
+    }
+    std::string &content = contentIt->second;
+
+    std::sort(edits.begin(), edits.end(),
+              [](const ResolvedFixEdit &a, const ResolvedFixEdit &b) {
+                if (a.Begin != b.Begin)
+                  return a.Begin < b.Begin;
+                return a.End < b.End;
+              });
+
+    bool hasOverlap = false;
+    for (std::size_t i = 1; i < edits.size(); ++i) {
+      if (edits[i - 1].End > edits[i].Begin) {
+        hasOverlap = true;
+        break;
+      }
+    }
+    if (hasOverlap) {
+      llvm::errs() << "warning: skipping overlapping fixes in file '" << path
+                   << "'\n";
+      continue;
+    }
+
+    std::size_t fileAppliedCount{0};
+    for (auto it = edits.rbegin(); it != edits.rend(); ++it) {
+      if (it->End > content.size() || it->Begin > it->End) {
+        llvm::errs() << "warning: skipping out-of-range fix in file '" << path
+                     << "'\n";
+        continue;
+      }
+      content.replace(it->Begin, it->End - it->Begin, it->Replacement);
+      ++fileAppliedCount;
+    }
+
+    std::error_code ec;
+    llvm::raw_fd_ostream out(path, ec, llvm::sys::fs::OF_None);
+    if (ec) {
+      llvm::errs() << "error: failed to write fixes to '" << path
+                   << "': " << ec.message() << "\n";
+      continue;
+    }
+    out << content;
+    appliedCount += fileAppliedCount;
+  }
+
+  return appliedCount;
+}
+
 int runFlangTidy(const FlangTidyOptions &options) {
   auto flang = std::make_unique<Fortran::frontend::CompilerInstance>();
 
@@ -292,6 +489,34 @@ int runFlangTidy(const FlangTidyOptions &options) {
   bool hasFatalError = messages.AnyFatalError();
 
   semantics.EmitMessages(llvm::outs());
+
+  for (const auto &fix : context.getFixIts()) {
+    llvm::outs() << "fix-it[" << fix.CheckName << "]";
+    if (!fix.Location.empty()) {
+      llvm::outs() << " at '" << fix.Location.ToString() << "'";
+    }
+    if (!fix.Hint.CodeToInsert.empty()) {
+      llvm::outs() << ": insert \"" << fix.Hint.CodeToInsert << "\"";
+    } else if (!fix.Hint.InsertFromRange.empty()) {
+      llvm::outs() << ": insert-from-range '"
+                   << fix.Hint.InsertFromRange.ToString() << "'";
+    } else if (!fix.Hint.RemoveRange.empty()) {
+      llvm::outs() << ": remove '" << fix.Hint.RemoveRange.ToString() << "'";
+    }
+    llvm::outs() << "\n";
+    if (auto fixedLine = renderFixedLine(fix, semanticsContext)) {
+      llvm::outs() << "  fixed: " << *fixedLine << "\n";
+    }
+  }
+
+  if (options.Fix && !context.getFixIts().empty()) {
+    const std::size_t applied =
+        applyFixesInPlace(context.getFixIts(), semanticsContext);
+    llvm::outs() << "applied " << applied << " fix-it(s)\n";
+    if (applied != context.getFixIts().size()) {
+      llvm::errs() << "warning: some fixes could not be applied\n";
+    }
+  }
 
   return hasFatalError ? 1 : 0;
 }
