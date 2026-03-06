@@ -319,20 +319,29 @@ renderFixedLine(const RecordedFixIt &fix,
   return fixedLine;
 }
 
-static std::size_t applyFixesInPlace(const std::vector<RecordedFixIt> &fixes,
-                                     semantics::SemanticsContext &context) {
+struct ApplyFixesResult {
+  std::size_t AppliedCount{0};
+  std::size_t DeduplicatedCount{0};
+  std::size_t FailedCount{0};
+};
+
+static ApplyFixesResult
+applyFixesInPlace(const std::vector<RecordedFixIt> &fixes,
+                  semantics::SemanticsContext &context) {
   std::map<std::string, std::vector<ResolvedFixEdit>> editsByFile;
   std::map<std::string, std::string> fileContent;
-  std::size_t appliedCount{0};
+  ApplyFixesResult result;
 
   for (const auto &fix : fixes) {
     auto edit = resolveFixEdit(fix, context);
     if (!edit) {
       llvm::errs() << "warning: skipping fix with invalid location\n";
+      ++result.FailedCount;
       continue;
     }
     if (edit->Path.empty()) {
       llvm::errs() << "warning: skipping fix with no associated file\n";
+      ++result.FailedCount;
       continue;
     }
     if (!fileContent.count(edit->Path))
@@ -351,8 +360,19 @@ static std::size_t applyFixesInPlace(const std::vector<RecordedFixIt> &fixes,
               [](const ResolvedFixEdit &a, const ResolvedFixEdit &b) {
                 if (a.Begin != b.Begin)
                   return a.Begin < b.Begin;
-                return a.End < b.End;
+                if (a.End != b.End)
+                  return a.End < b.End;
+                return a.Replacement < b.Replacement;
               });
+    const std::size_t beforeDedupe = edits.size();
+    edits.erase(
+        std::unique(edits.begin(), edits.end(),
+                    [](const ResolvedFixEdit &a, const ResolvedFixEdit &b) {
+                      return a.Begin == b.Begin && a.End == b.End &&
+                             a.Replacement == b.Replacement;
+                    }),
+        edits.end());
+    result.DeduplicatedCount += beforeDedupe - edits.size();
 
     bool hasOverlap = false;
     for (std::size_t i = 1; i < edits.size(); ++i) {
@@ -364,6 +384,7 @@ static std::size_t applyFixesInPlace(const std::vector<RecordedFixIt> &fixes,
     if (hasOverlap) {
       llvm::errs() << "warning: skipping overlapping fixes in file '" << path
                    << "'\n";
+      result.FailedCount += edits.size();
       continue;
     }
 
@@ -372,6 +393,7 @@ static std::size_t applyFixesInPlace(const std::vector<RecordedFixIt> &fixes,
       if (it->End > content.size() || it->Begin > it->End) {
         llvm::errs() << "warning: skipping out-of-range fix in file '" << path
                      << "'\n";
+        ++result.FailedCount;
         continue;
       }
       content.replace(it->Begin, it->End - it->Begin, it->Replacement);
@@ -383,13 +405,14 @@ static std::size_t applyFixesInPlace(const std::vector<RecordedFixIt> &fixes,
     if (ec) {
       llvm::errs() << "error: failed to write fixes to '" << path
                    << "': " << ec.message() << "\n";
+      result.FailedCount += fileAppliedCount;
       continue;
     }
     out << content;
-    appliedCount += fileAppliedCount;
+    result.AppliedCount += fileAppliedCount;
   }
 
-  return appliedCount;
+  return result;
 }
 
 int runFlangTidy(const FlangTidyOptions &options) {
@@ -510,10 +533,10 @@ int runFlangTidy(const FlangTidyOptions &options) {
   }
 
   if (options.Fix && !context.getFixIts().empty()) {
-    const std::size_t applied =
+    const auto applyResult =
         applyFixesInPlace(context.getFixIts(), semanticsContext);
-    llvm::outs() << "applied " << applied << " fix-it(s)\n";
-    if (applied != context.getFixIts().size()) {
+    llvm::outs() << "applied " << applyResult.AppliedCount << " fix-it(s)\n";
+    if (applyResult.FailedCount != 0) {
       llvm::errs() << "warning: some fixes could not be applied\n";
     }
   }
