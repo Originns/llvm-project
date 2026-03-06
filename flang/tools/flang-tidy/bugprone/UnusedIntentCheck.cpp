@@ -318,7 +318,9 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
           procBindingDetailsSymbolsMap.end()) {
         continue;
       }
-      if (!WasDefined(symbol) && semantics::IsIntentInOut(symbol)) {
+      const bool shouldCheckUnusedIntentInOut =
+          semantics::IsIntentInOut(symbol) && !semantics::IsPolymorphic(symbol);
+      if (!WasDefined(symbol) && shouldCheckUnusedIntentInOut) {
         Say(symbol.name(),
             "Dummy argument '%s' with intent(inout) is never written to, consider changing to intent(in)"_warn_en_US,
             symbol.name());
