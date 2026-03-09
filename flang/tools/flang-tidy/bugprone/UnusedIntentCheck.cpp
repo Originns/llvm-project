@@ -319,7 +319,9 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
         continue;
       }
       const bool shouldCheckUnusedIntentInOut =
-          semantics::IsIntentInOut(symbol) && !semantics::IsPolymorphic(symbol);
+          semantics::IsIntentInOut(symbol) && symbol.Rank() == 0 &&
+          !semantics::IsUnlimitedPolymorphic(symbol) &&
+          !semantics::IsAssumedType(symbol);
       if (!WasDefined(symbol) && shouldCheckUnusedIntentInOut) {
         Say(symbol.name(),
             "Dummy argument '%s' with intent(inout) is never written to, consider changing to intent(in)"_warn_en_US,
@@ -358,12 +360,17 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
               {semantics::Attr::INTENT_IN, semantics::Attr::INTENT_INOUT,
                semantics::Attr::INTENT_OUT, semantics::Attr::VALUE})) {
         // warn about dummy arguments without explicit intent
-        bool isWrittenTo = WasDefined(symbol);
-
         Say(symbol.name(),
             "Dummy argument '%s' has no explicit intent"_warn_en_US,
             symbol.name());
 
+        if (symbol.attrs().test(semantics::Attr::TARGET)) {
+          // Pointer association through TARGET dummies can be misclassified
+          // as a definition by semantics. Avoid intent auto-fixes here.
+          continue;
+        }
+
+        bool isWrittenTo = WasDefined(symbol);
         if (auto line = utils::getSourceLineInfo(context, symbol.name())) {
           const std::string intentSpec =
               getIntentSpecSpelling(line->lineText, isWrittenTo);
