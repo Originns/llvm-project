@@ -558,7 +558,8 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
             "Dummy argument '%s' has no explicit intent"_warn_en_US,
             symbol.name());
 
-        if (symbol.attrs().test(semantics::Attr::TARGET)) {
+        if (symbol.attrs().test(semantics::Attr::TARGET) ||
+            symbol.attrs().test(semantics::Attr::POINTER)) {
           // Pointer association through TARGET dummies can be misclassified
           // as a definition by semantics. Avoid intent auto-fixes here.
           continue;
