@@ -27,6 +27,11 @@ using namespace parser::literals;
 static std::unordered_map<const semantics::Symbol *, const semantics::Symbol *>
     procBindingDetailsSymbolsMap;
 static std::unordered_set<const char *> mixedIntentDeclsWithFix;
+static std::unordered_set<const char *> mixedMissingIntentDeclsWithFix;
+struct ParsedEntityDecl {
+  std::string declarator;
+  std::string baseName;
+};
 
 static std::string toLowerCopy(llvm::StringRef text) {
   std::string lower = text.str();
@@ -61,29 +66,82 @@ static bool isSimpleIdentifier(llvm::StringRef token) {
   return true;
 }
 
-static std::optional<std::vector<std::string>>
-parseSimpleEntityList(llvm::StringRef entityText) {
-  std::vector<std::string> names;
+static bool hasTopLevelComma(llvm::StringRef text) {
+  int parenDepth{0};
+  for (char ch : text) {
+    if (ch == '(') {
+      ++parenDepth;
+    } else if (ch == ')') {
+      if (parenDepth > 0) {
+        --parenDepth;
+      }
+    } else if (ch == ',' && parenDepth == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static std::optional<std::vector<ParsedEntityDecl>>
+parseEntityDeclList(llvm::StringRef entityText) {
+  std::vector<ParsedEntityDecl> entities;
   std::size_t pos{0};
   while (pos < entityText.size()) {
-    const std::size_t comma = entityText.find(',', pos);
-    const llvm::StringRef raw = comma == llvm::StringRef::npos
-                                    ? entityText.substr(pos)
-                                    : entityText.substr(pos, comma - pos);
-    const llvm::StringRef token = raw.trim();
-    if (!isSimpleIdentifier(token)) {
+    std::size_t comma = llvm::StringRef::npos;
+    int parenDepth{0};
+    for (std::size_t i = pos; i < entityText.size(); ++i) {
+      const char ch = entityText[i];
+      if (ch == '(') {
+        ++parenDepth;
+      } else if (ch == ')') {
+        if (parenDepth > 0) {
+          --parenDepth;
+        }
+      } else if (ch == ',' && parenDepth == 0) {
+        comma = i;
+        break;
+      }
+    }
+
+    const llvm::StringRef rawToken = comma == llvm::StringRef::npos
+                                         ? entityText.substr(pos)
+                                         : entityText.substr(pos, comma - pos);
+    const llvm::StringRef token = rawToken.trim();
+    if (token.empty()) {
       return std::nullopt;
     }
-    names.push_back(token.str());
+
+    std::size_t nameEnd{0};
+    if (!token.empty()) {
+      const unsigned char first = static_cast<unsigned char>(token.front());
+      if (!(std::isalpha(first) || token.front() == '_')) {
+        return std::nullopt;
+      }
+      nameEnd = 1;
+      while (nameEnd < token.size()) {
+        const char ch = token[nameEnd];
+        const unsigned char uch = static_cast<unsigned char>(ch);
+        if (!(std::isalnum(uch) || ch == '_')) {
+          break;
+        }
+        ++nameEnd;
+      }
+    }
+    const llvm::StringRef baseName = token.take_front(nameEnd);
+    if (!isSimpleIdentifier(baseName)) {
+      return std::nullopt;
+    }
+    entities.push_back(ParsedEntityDecl{token.str(), baseName.str()});
+
     if (comma == llvm::StringRef::npos) {
       break;
     }
     pos = comma + 1;
   }
-  if (names.empty()) {
+  if (entities.empty()) {
     return std::nullopt;
   }
-  return names;
+  return entities;
 }
 
 static std::optional<parser::CharBlock>
@@ -129,31 +187,33 @@ buildMixedIntentReplacement(const utils::SourceLineInfo &line,
       getIntentSpecSpelling(line.lineText, false));
 
   const llvm::StringRef rhs = llvm::StringRef{declPart}.substr(rhsStart).trim();
-  auto parsedNames = parseSimpleEntityList(rhs);
-  if (!parsedNames || parsedNames->size() < 2) {
+  auto parsedEntities = parseEntityDeclList(rhs);
+  if (!parsedEntities || parsedEntities->size() < 2) {
     return std::nullopt;
   }
 
   const std::string targetLower = toLowerCopy(targetName);
-  std::vector<std::string> keep;
+  std::vector<std::string> keepDecls;
+  std::string targetDecl;
   bool foundTarget{false};
-  for (const std::string &name : *parsedNames) {
-    if (toLowerCopy(name) == targetLower) {
+  for (const ParsedEntityDecl &entity : *parsedEntities) {
+    if (toLowerCopy(entity.baseName) == targetLower) {
       foundTarget = true;
+      targetDecl = entity.declarator;
     } else {
-      keep.push_back(name);
+      keepDecls.push_back(entity.declarator);
     }
   }
-  if (!foundTarget || keep.empty()) {
+  if (!foundTarget || keepDecls.empty() || targetDecl.empty()) {
     return std::nullopt;
   }
 
   std::string keepList;
-  for (std::size_t i{0}; i < keep.size(); ++i) {
+  for (std::size_t i{0}; i < keepDecls.size(); ++i) {
     if (i > 0) {
       keepList += ", ";
     }
-    keepList += keep[i];
+    keepList += keepDecls[i];
   }
 
   std::string firstLine = prefix + keepList;
@@ -171,7 +231,7 @@ buildMixedIntentReplacement(const utils::SourceLineInfo &line,
   }
   const std::string secondLine =
       indent + llvm::StringRef{prefixWithIntentIn}.ltrim(" \t").str() +
-      targetName.str();
+      targetDecl;
   return firstLine + "\n" + secondLine;
 }
 
@@ -195,20 +255,22 @@ static std::optional<std::string> buildMissingIntentInsertionForMixedDecl(
     ++rhsStart;
   }
   const llvm::StringRef rhs = llvm::StringRef{declPart}.substr(rhsStart).trim();
-  auto parsedNames = parseSimpleEntityList(rhs);
-  if (!parsedNames || parsedNames->size() < 2) {
+  auto parsedEntities = parseEntityDeclList(rhs);
+  if (!parsedEntities || parsedEntities->size() < 2) {
     return std::nullopt;
   }
 
   const std::string targetLower = toLowerCopy(targetName);
+  std::string targetDecl;
   bool foundTarget{false};
-  for (const std::string &name : *parsedNames) {
-    if (toLowerCopy(name) == targetLower) {
+  for (const ParsedEntityDecl &entity : *parsedEntities) {
+    if (toLowerCopy(entity.baseName) == targetLower) {
       foundTarget = true;
+      targetDecl = entity.declarator;
       break;
     }
   }
-  if (!foundTarget) {
+  if (!foundTarget || targetDecl.empty()) {
     return std::nullopt;
   }
 
@@ -232,7 +294,139 @@ static std::optional<std::string> buildMissingIntentInsertionForMixedDecl(
   }
   return "\n" + indent +
          llvm::StringRef{prefixWithDeclAndAttrs}.ltrim(" \t").str() +
-         targetName.str();
+         targetDecl;
+}
+
+static const semantics::Symbol *
+findSymbolInScopeByNameCaseInsensitive(const semantics::Scope &scope,
+                                       llvm::StringRef name) {
+  const std::string nameLower = toLowerCopy(name);
+  for (const auto &pair : scope) {
+    const semantics::Symbol &candidate = *pair.second;
+    if (toLowerCopy(candidate.name().ToString()) == nameLower) {
+      return &candidate;
+    }
+  }
+  return nullptr;
+}
+
+static std::optional<std::string> buildMissingIntentReplacementForMixedDecl(
+    const utils::SourceLineInfo &line, const semantics::Scope &scope,
+    llvm::StringRef explicitIndentation,
+    llvm::function_ref<bool(const semantics::Symbol &)> wasDefined) {
+  const std::string lineText = line.lineText;
+  const std::size_t commentPos = lineText.find('!');
+  const std::string declPart = commentPos == std::string::npos
+                                   ? lineText
+                                   : lineText.substr(0, commentPos);
+  const std::string commentPart =
+      commentPos == std::string::npos ? "" : lineText.substr(commentPos);
+
+  const std::size_t doubleColonPos = declPart.find("::");
+  if (doubleColonPos == std::string::npos) {
+    return std::nullopt;
+  }
+
+  std::size_t rhsStart = doubleColonPos + 2;
+  while (rhsStart < declPart.size() &&
+         std::isspace(static_cast<unsigned char>(declPart[rhsStart]))) {
+    ++rhsStart;
+  }
+  const std::string prefix = declPart.substr(0, rhsStart);
+  const llvm::StringRef rhs = llvm::StringRef{declPart}.substr(rhsStart).trim();
+  auto parsedEntities = parseEntityDeclList(rhs);
+  if (!parsedEntities || parsedEntities->size() < 2) {
+    return std::nullopt;
+  }
+
+  auto insertPos =
+      utils::findDeclAttrInsertionPoint(line.lineText, line.lineBegin);
+  if (!insertPos) {
+    return std::nullopt;
+  }
+  const std::ptrdiff_t insertOffset = *insertPos - line.lineBegin;
+  if (insertOffset < 0 ||
+      static_cast<std::size_t>(insertOffset) > prefix.size()) {
+    return std::nullopt;
+  }
+
+  std::string indent = explicitIndentation.str();
+  if (indent.empty()) {
+    indent = utils::getLeadingWhitespace(line.lineText);
+  }
+  const bool lineTextHasExplicitIndent =
+      indent.empty() || llvm::StringRef{line.lineText}.starts_with(indent);
+
+  std::vector<std::string> keepDecls;
+  std::vector<std::string> splitLineBodies;
+  bool changed{false};
+  for (const ParsedEntityDecl &entity : *parsedEntities) {
+    const semantics::Symbol *symbol =
+        findSymbolInScopeByNameCaseInsensitive(scope, entity.baseName);
+    if (!symbol) {
+      keepDecls.push_back(entity.declarator);
+      continue;
+    }
+
+    const auto *details = symbol->detailsIf<semantics::ObjectEntityDetails>();
+    if (!details || !details->isDummy() ||
+        symbol->attrs().HasAny(
+            {semantics::Attr::INTENT_IN, semantics::Attr::INTENT_INOUT,
+             semantics::Attr::INTENT_OUT, semantics::Attr::VALUE}) ||
+        symbol->attrs().test(semantics::Attr::TARGET)) {
+      keepDecls.push_back(entity.declarator);
+      continue;
+    }
+
+    changed = true;
+    const std::string intentSpec =
+        getIntentSpecSpelling(line.lineText, wasDefined(*symbol));
+    std::string prefixWithDeclAndAttrs = prefix;
+    prefixWithDeclAndAttrs.insert(static_cast<std::size_t>(insertOffset),
+                                  ", " + intentSpec);
+    splitLineBodies.push_back(
+        llvm::StringRef{prefixWithDeclAndAttrs}.ltrim(" \t").str() +
+        entity.declarator);
+  }
+  if (!changed || splitLineBodies.empty()) {
+    return std::nullopt;
+  }
+
+  std::string replacement;
+  if (!keepDecls.empty()) {
+    std::string firstLine = prefix;
+    for (std::size_t i{0}; i < keepDecls.size(); ++i) {
+      if (i > 0) {
+        firstLine += ", ";
+      }
+      firstLine += keepDecls[i];
+    }
+    if (!commentPart.empty()) {
+      if (!firstLine.empty() &&
+          !std::isspace(static_cast<unsigned char>(firstLine.back()))) {
+        firstLine += " ";
+      }
+      firstLine += commentPart;
+    }
+    replacement = firstLine;
+  }
+
+  for (std::size_t i{0}; i < splitLineBodies.size(); ++i) {
+    if (!replacement.empty() || i > 0) {
+      replacement += "\n";
+    }
+    const bool skipIndentOnFirstSplitLine =
+        i == 0 && keepDecls.empty() && !lineTextHasExplicitIndent;
+    if (!skipIndentOnFirstSplitLine) {
+      replacement += indent;
+    }
+    replacement += splitLineBodies[i];
+  }
+  if (keepDecls.empty() && !commentPart.empty()) {
+    replacement += " " + commentPart;
+  }
+
+  return replacement;
 }
 
 static bool hasSingleEntityAfterDoubleColon(const std::string &lineText) {
@@ -245,7 +439,7 @@ static bool hasSingleEntityAfterDoubleColon(const std::string &lineText) {
       commentPos != std::string::npos) {
     suffix.erase(commentPos);
   }
-  return suffix.find(',') == std::string::npos;
+  return !hasTopLevelComma(suffix);
 }
 
 static std::optional<parser::CharBlock>
@@ -385,23 +579,36 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
                                         fix);
             }
           } else {
-            const std::string indentFromSource =
-                utils::getLeadingWhitespaceFromSourceLine(context,
-                                                          symbol.name());
-            const std::string fixText =
-                buildMissingIntentInsertionForMixedDecl(
-                    *line, symbol.name().ToString(), intentSpec,
-                    indentFromSource)
-                    .value_or("\n" +
-                              utils::getLeadingWhitespace(line->lineText) +
-                              intentSpec +
-                              utils::getDoubleColonSeparator(line->lineText) +
-                              symbol.name().ToString());
-            Fortran::tidy::FixItHint fix =
-                Fortran::tidy::FixItHint::CreateInsertion(
-                    parser::CharBlock{line->lineEnd, line->lineEnd}, fixText);
-            this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
-                                      fix);
+            if (mixedMissingIntentDeclsWithFix.insert(line->lineBegin).second) {
+              const std::string indentFromSource =
+                  utils::getLeadingWhitespaceFromSourceLine(context,
+                                                            symbol.name());
+              if (auto replacement = buildMissingIntentReplacementForMixedDecl(
+                      *line, scope, indentFromSource, WasDefined)) {
+                Fortran::tidy::FixItHint fix =
+                    Fortran::tidy::FixItHint::CreateReplacement(
+                        parser::CharBlock{line->lineBegin, line->lineEnd},
+                        llvm::StringRef{*replacement});
+                this->context()->addFixIt("bugprone-unused-intent",
+                                          symbol.name(), fix);
+              } else {
+                const std::string fixText =
+                    buildMissingIntentInsertionForMixedDecl(
+                        *line, symbol.name().ToString(), intentSpec,
+                        indentFromSource)
+                        .value_or(
+                            "\n" + utils::getLeadingWhitespace(line->lineText) +
+                            intentSpec +
+                            utils::getDoubleColonSeparator(line->lineText) +
+                            symbol.name().ToString());
+                Fortran::tidy::FixItHint fix =
+                    Fortran::tidy::FixItHint::CreateInsertion(
+                        parser::CharBlock{line->lineEnd, line->lineEnd},
+                        fixText);
+                this->context()->addFixIt("bugprone-unused-intent",
+                                          symbol.name(), fix);
+              }
+            }
           }
         }
       }
