@@ -235,9 +235,11 @@ buildMixedIntentReplacement(const utils::SourceLineInfo &line,
   return firstLine + "\n" + secondLine;
 }
 
-static std::optional<std::string> buildMissingIntentInsertionForMixedDecl(
-    const utils::SourceLineInfo &line, llvm::StringRef targetName,
-    llvm::StringRef intentSpec, llvm::StringRef explicitIndentation) {
+[[maybe_unused]] static std::optional<std::string>
+buildMissingIntentInsertionForMixedDecl(const utils::SourceLineInfo &line,
+                                        llvm::StringRef targetName,
+                                        llvm::StringRef intentSpec,
+                                        llvm::StringRef explicitIndentation) {
   const std::string lineText = line.lineText;
   const std::size_t commentPos = lineText.find('!');
   const std::string declPart = commentPos == std::string::npos
@@ -310,7 +312,8 @@ findSymbolInScopeByNameCaseInsensitive(const semantics::Scope &scope,
   return nullptr;
 }
 
-static std::optional<std::string> buildMissingIntentReplacementForMixedDecl(
+[[maybe_unused]] static std::optional<std::string>
+buildMissingIntentReplacementForMixedDecl(
     const utils::SourceLineInfo &line, const semantics::Scope &scope,
     llvm::StringRef explicitIndentation,
     llvm::function_ref<bool(const semantics::Symbol &)> wasDefined) {
@@ -565,6 +568,7 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
           continue;
         }
 
+        /*
         bool isWrittenTo = WasDefined(symbol);
         if (auto line = utils::getSourceLineInfo(context, symbol.name())) {
           const std::string intentSpec =
@@ -612,6 +616,7 @@ void UnusedIntentCheck::CheckUnusedIntentHelper(
             }
           }
         }
+         */
       }
     }
   }
