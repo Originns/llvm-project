@@ -74,7 +74,10 @@ void UnusedUSECheck::Enter(const parser::UseStmt &stmt) {
   const parser::CharBlock stmtSource =
       context()->getSemanticsContext().location().value_or(
           stmt.moduleName.source);
-  UseStmtFixInfo fixInfo{stmtSource, stmt.moduleName.source, moduleSymbol};
+  UseStmtFixInfo fixInfo;
+  fixInfo.stmtSource = stmtSource;
+  fixInfo.diagnosticLoc = stmt.moduleName.source;
+  fixInfo.moduleSymbol = moduleSymbol;
 
   if (std::holds_alternative<std::list<parser::Only>>(stmt.u)) {
     const auto &onlyList = std::get<std::list<parser::Only>>(stmt.u);
@@ -189,7 +192,7 @@ void UnusedUSECheck::Leave(const parser::UseStmt &) {
 }
 
 std::optional<Fortran::tidy::FixItHint>
-UnusedUSECheck::buildFix(const UseStmtFixInfo &info) const {
+UnusedUSECheck::buildFix(const UseStmtFixInfo &info) {
   if (!isSingleLine(info.stmtSource)) {
     return std::nullopt;
   }
@@ -248,8 +251,8 @@ UnusedUSECheck::buildFix(const UseStmtFixInfo &info) const {
   }
   replacement += commentText.str();
 
-  return Fortran::tidy::FixItHint::CreateReplacement(info.stmtSource,
-                                                     replacement);
+  return Fortran::tidy::FixItHint::CreateReplacement(
+      info.stmtSource, llvm::StringRef{replacement});
 }
 
 void UnusedUSECheck::Leave(const parser::ProgramUnit &) {

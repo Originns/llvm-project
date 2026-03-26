@@ -54,8 +54,7 @@ private:
     std::vector<ImportedItemForFix> items;
   };
 
-  std::optional<Fortran::tidy::FixItHint>
-  buildFix(const UseStmtFixInfo &info) const;
+  std::optional<Fortran::tidy::FixItHint> buildFix(const UseStmtFixInfo &info);
 
   std::map<const semantics::Symbol *, ImportedSymbolInfo> importedSymbols_;
   std::set<const semantics::Symbol *> usedSymbols_;
