@@ -43,7 +43,9 @@ void PointerTemporaryCheck::Leave(
           {semantics::Attr::INTENT_IN, semantics::Attr::VALUE}) &&
       evaluate::IsContiguous(
           *rhsSymbol, context()->getSemanticsContext().foldingContext())) {
-    Say(context()->getSemanticsContext().location().value(),
+    if (!context()->getSemanticsContext().location())
+      return;
+    Say(*context()->getSemanticsContext().location(),
         "Pointer dummy argument '%s' may become associated with a "
         "contiguous target, which may be a temporary"_warn_en_US,
         lhsSymbol->name());

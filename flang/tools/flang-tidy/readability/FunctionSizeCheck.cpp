@@ -34,13 +34,13 @@ void FunctionSizeCheck::Enter(const parser::SubroutineSubprogram &program) {
   maxNestingLevel_ = 0;
   inProcedure_ = true;
 
+  const auto &subroutineStmtWrapper =
+      std::get<parser::Statement<parser::SubroutineStmt>>(program.t);
   currentProcLoc_ =
-      std::get<parser::Statement<parser::SubroutineStmt>>(program.t).source;
+      std::get<parser::Name>(subroutineStmtWrapper.statement.t).source;
 
   if (ParameterThreshold) {
-    const auto &subroutineStmt =
-        std::get<parser::Statement<parser::SubroutineStmt>>(program.t)
-            .statement;
+    const auto &subroutineStmt = subroutineStmtWrapper.statement;
     const auto &dummyArgs =
         std::get<std::list<parser::DummyArg>>(subroutineStmt.t);
     if ((int)dummyArgs.size() > ParameterThreshold) {
@@ -98,14 +98,13 @@ void FunctionSizeCheck::Enter(
   maxNestingLevel_ = 0;
   inProcedure_ = true;
 
+  const auto &functionStmtWrapper =
+      std::get<parser::Statement<parser::FunctionStmt>>(functionSubprogram.t);
   currentProcLoc_ =
-      std::get<parser::Statement<parser::FunctionStmt>>(functionSubprogram.t)
-          .source;
+      std::get<parser::Name>(functionStmtWrapper.statement.t).source;
 
   if (ParameterThreshold) {
-    const auto &functionStmt =
-        std::get<parser::Statement<parser::FunctionStmt>>(functionSubprogram.t)
-            .statement;
+    const auto &functionStmt = functionStmtWrapper.statement;
     const auto &args = std::get<std::list<parser::Name>>(functionStmt.t);
     if ((int)args.size() > ParameterThreshold) {
       Say(currentProcLoc_,

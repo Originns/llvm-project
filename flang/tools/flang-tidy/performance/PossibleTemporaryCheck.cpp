@@ -50,6 +50,8 @@ void PossibleTemporaryCheck::Enter(const parser::CallStmt &callStmt) {
           continue;
 
         // get the dummy arg
+        if (j - 1 >= (int)details->dummyArgs().size())
+          continue;
         const auto *dummy = details->dummyArgs()[j - 1];
         if (!dummy)
           continue;

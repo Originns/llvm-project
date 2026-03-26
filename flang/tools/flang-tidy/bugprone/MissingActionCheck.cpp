@@ -24,13 +24,16 @@ void MissingActionCheck::Leave(const parser::FileUnitNumber &fileUnit) {
       semantics::GetExpr(context()->getSemanticsContext(), fileUnit.v);
 
   if (expr && evaluate::IsConstantExpr(*expr)) {
-    Say(context()->getSemanticsContext().location().value(),
-        "File unit number is a constant literal"_warn_en_US);
+    if (auto loc = context()->getSemanticsContext().location()) {
+      Say(*loc, "File unit number is a constant literal"_warn_en_US);
+    }
   }
 }
 
 void MissingActionCheck::Leave(const parser::OpenStmt &openStmt) {
-  const auto &source = context()->getSemanticsContext().location().value();
+  if (!context()->getSemanticsContext().location())
+    return;
+  const auto &source = *context()->getSemanticsContext().location();
 
   const auto &connectSpec = openStmt.v;
 
