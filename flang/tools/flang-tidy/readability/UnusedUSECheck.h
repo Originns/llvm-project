@@ -10,8 +10,11 @@
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_READABILITY_UNUSEUSECHECK_H
 
 #include "FlangTidyCheck.h"
+#include "utils/FixIt.h"
 #include <map>
+#include <optional>
 #include <set>
+#include <vector>
 
 namespace Fortran::tidy::readability {
 
@@ -21,20 +24,46 @@ public:
 
   void Enter(const parser::UseStmt &) override;
   void Enter(const parser::Name &) override;
+  void Leave(const parser::UseStmt &) override;
   void Leave(const parser::ProgramUnit &) override;
 
 private:
-  // Track imported symbols: symbol -> source location
-  std::map<const semantics::Symbol *, parser::CharBlock> importedSymbols_;
+  struct ImportedSymbolInfo {
+    parser::CharBlock diagnosticLoc;
+    parser::CharBlock itemSource;
+    parser::CharBlock stmtSource;
+  };
 
-  // Track used symbols
+  struct WholeModuleImportInfo {
+    parser::CharBlock diagnosticLoc;
+    parser::CharBlock stmtSource;
+  };
+
+  struct ImportedItemForFix {
+    const semantics::Symbol *symbol{nullptr};
+    parser::CharBlock itemSource;
+  };
+
+  struct UseStmtFixInfo {
+    parser::CharBlock stmtSource;
+    parser::CharBlock diagnosticLoc;
+    const semantics::Symbol *moduleSymbol{nullptr};
+    bool isWholeModuleImport{false};
+    bool hasUnsupportedItem{false};
+    bool fixEmitted{false};
+    std::vector<ImportedItemForFix> items;
+  };
+
+  std::optional<Fortran::tidy::FixItHint>
+  buildFix(const UseStmtFixInfo &info) const;
+
+  std::map<const semantics::Symbol *, ImportedSymbolInfo> importedSymbols_;
   std::set<const semantics::Symbol *> usedSymbols_;
-
-  // Track whole module imports: module symbol -> source location
-  std::map<const semantics::Symbol *, parser::CharBlock> wholeModuleImports_;
-
-  // Track used modules
+  std::map<const semantics::Symbol *, WholeModuleImportInfo>
+      wholeModuleImports_;
   std::set<const semantics::Symbol *> usedModules_;
+  std::vector<UseStmtFixInfo> useStmtFixes_;
+  unsigned activeUseStmtDepth_{0};
 };
 
 } // namespace Fortran::tidy::readability
