@@ -33,6 +33,7 @@ public:
   void Leave(const parser::AssignmentStmt &) override;
   void Leave(const parser::PointerAssignmentStmt &) override;
   void Enter(const parser::CallStmt &) override;
+  void Leave(const parser::Program &) override;
 
 private:
   // Per-procedure context built during parse-tree walk.
@@ -45,7 +46,23 @@ private:
     std::unordered_set<const semantics::Symbol *> definitelyWritten;
   };
 
+  // Completed procedure contexts waiting for final emission.
+  // Deferred so that procedure-designator actuals seen later in the parse tree
+  // (e.g. `call solver(myop)` after the definition of `myop`) can suppress
+  // fix-its on procedures whose interface must be kept compatible.
+  struct DeferredScope {
+    const semantics::Scope *bodyScope;
+    std::unordered_set<const semantics::Symbol *> definitelyWritten;
+  };
+
   std::vector<ProcContext> procStack_;
+  std::vector<DeferredScope> deferredScopes_;
+
+  // Procedures that appear as actual procedure arguments anywhere in the
+  // program.  Their intent cannot be changed without updating the matching
+  // interface, so we suppress fix-its (and warnings) for those procedures.
+  std::unordered_set<const semantics::Symbol *> procedureArgSymbols_;
+
   std::unordered_map<const semantics::Symbol *, const semantics::Symbol *>
       procBindingDetailsSymbolsMap_;
   // Guards against duplicate fix-its on the same source line.
@@ -56,7 +73,8 @@ private:
   void LeaveSubprogram();
   void EmitWarningsForScope(
       const semantics::Scope &scope,
-      const std::unordered_set<const semantics::Symbol *> &definitelyWritten);
+      const std::unordered_set<const semantics::Symbol *> &definitelyWritten,
+      bool suppressFixIts = false);
   void MakeProcBindingSymbolSet(semantics::SemanticsContext &context,
                                 const semantics::Scope &scope);
 };

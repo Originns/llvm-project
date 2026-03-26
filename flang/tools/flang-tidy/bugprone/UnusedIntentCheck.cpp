@@ -561,9 +561,12 @@ void UnusedIntentCheck::EnterSubprogram(const parser::Name &name) {
 void UnusedIntentCheck::LeaveSubprogram() {
   if (procStack_.empty())
     return;
-  const ProcContext &ctx = procStack_.back();
+  ProcContext &ctx = procStack_.back();
   if (ctx.bodyScope) {
-    EmitWarningsForScope(*ctx.bodyScope, ctx.definitelyWritten);
+    // Defer emission: the procedure might be passed as an actual argument in a
+    // later program unit, which would make changing its intent unsafe.
+    deferredScopes_.push_back(
+        {ctx.bodyScope, std::move(ctx.definitelyWritten)});
   }
   procStack_.pop_back();
 }
@@ -651,28 +654,45 @@ void UnusedIntentCheck::Leave(const parser::PointerAssignmentStmt &assignment) {
 // ---------------------------------------------------------------------------
 
 void UnusedIntentCheck::Enter(const parser::CallStmt &callStmt) {
-  if (procStack_.empty() || !procStack_.back().bodyScope)
-    return;
-
   const auto *procedureRef = callStmt.typedCall.get();
   if (!procedureRef)
     return;
 
-  const semantics::Scope *bodyScope = procStack_.back().bodyScope;
+  const semantics::Scope *bodyScope =
+      (!procStack_.empty() && procStack_.back().bodyScope)
+          ? procStack_.back().bodyScope
+          : nullptr;
 
   for (const auto &arg : procedureRef->arguments()) {
     if (!arg)
       continue;
 
-    // Only count arguments that are provably written by the callee.
+    const auto *expr = arg->UnwrapExpr();
+    if (!expr)
+      continue;
+
+    // Record procedure-designator actual arguments unconditionally (regardless
+    // of whether we are inside a tracked scope).  These procedures must keep
+    // their dummies' intents compatible with the matching interface; changing
+    // them would be unsafe, so we suppress warnings for those procedures.
+    if (evaluate::IsProcedureDesignator(*expr)) {
+      if (const auto *procDesig =
+              std::get_if<evaluate::ProcedureDesignator>(&expr->u)) {
+        if (const semantics::Symbol *procSym = procDesig->GetSymbol()) {
+          procedureArgSymbols_.insert(&procSym->GetUltimate());
+        }
+      }
+      continue; // procedure args cannot be data dummies — skip intent tracking
+    }
+
+    if (!bodyScope)
+      continue;
+
+    // Only count data arguments that are provably written by the callee.
     // dummyIntent() returns the dummy's declared intent from the explicit
     // interface, or Default/Unknown for implicit interfaces.
     const common::Intent intent = arg->dummyIntent();
     if (intent != common::Intent::Out && intent != common::Intent::InOut)
-      continue;
-
-    const auto *expr = arg->UnwrapExpr();
-    if (!expr)
       continue;
 
     const semantics::Symbol *sym = evaluate::GetFirstSymbol(*expr);
@@ -693,6 +713,27 @@ void UnusedIntentCheck::Enter(const parser::CallStmt &callStmt) {
 }
 
 // ---------------------------------------------------------------------------
+// Leave(Program) — emit all deferred scope warnings, suppressing procedures
+// that were passed as actual procedure arguments anywhere in the program.
+// ---------------------------------------------------------------------------
+
+void UnusedIntentCheck::Leave(const parser::Program &) {
+  for (const DeferredScope &deferred : deferredScopes_) {
+    if (!deferred.bodyScope)
+      continue;
+    // If this procedure was passed as an actual argument, its dummy intents
+    // must remain compatible with the matching interface — warn but don't fix.
+    const semantics::Symbol *procSym = deferred.bodyScope->symbol();
+    const bool isPassedAsProcArg =
+        procSym &&
+        procedureArgSymbols_.count(&procSym->GetUltimate()) > 0;
+    EmitWarningsForScope(*deferred.bodyScope, deferred.definitelyWritten,
+                         isPassedAsProcArg);
+  }
+  deferredScopes_.clear();
+}
+
+// ---------------------------------------------------------------------------
 // EmitWarningsForScope — replaces CheckUnusedIntentHelper.
 //
 // WasDefined      = IsSymbolDefined (conservative, used for warnings).
@@ -704,7 +745,8 @@ void UnusedIntentCheck::Enter(const parser::CallStmt &callStmt) {
 
 void UnusedIntentCheck::EmitWarningsForScope(
     const semantics::Scope &scope,
-    const std::unordered_set<const semantics::Symbol *> &definitelyWritten) {
+    const std::unordered_set<const semantics::Symbol *> &definitelyWritten,
+    bool suppressFixIts) {
 
   auto &semCtx = context()->getSemanticsContext();
 
@@ -756,7 +798,7 @@ void UnusedIntentCheck::EmitWarningsForScope(
       // Fix-it: safe to suggest intent(in) because !WasDefined means the
       // symbol is provably never written (not even through implicit ifaces).
       if (auto line = utils::getSourceLineInfo(semCtx, symbol.name())) {
-        if (hasSingleEntityAfterDoubleColon(line->lineText)) {
+        if (!suppressFixIts && hasSingleEntityAfterDoubleColon(line->lineText)) {
           if (auto inoutRange = findIntentInoutRange(*line)) {
             const std::string replacementText =
                 getIntentSpecSpelling(line->lineText, false);
@@ -766,7 +808,8 @@ void UnusedIntentCheck::EmitWarningsForScope(
             this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
                                       fix);
           }
-        } else if (mixedIntentDeclsWithFix_.insert(line->lineBegin).second) {
+        } else if (!suppressFixIts &&
+                   mixedIntentDeclsWithFix_.insert(line->lineBegin).second) {
           const std::string indentFromSource =
               utils::getLeadingWhitespaceFromSourceLine(semCtx, symbol.name());
           if (auto replacement = buildMixedIntentReplacement(
@@ -815,47 +858,49 @@ void UnusedIntentCheck::EmitWarningsForScope(
         continue;
       }
 
-      if (auto line = utils::getSourceLineInfo(semCtx, symbol.name())) {
-        const std::string intentSpec =
-            getIntentSpecSpelling(line->lineText, isDefinitelyWritten);
+      if (!suppressFixIts) {
+        if (auto line = utils::getSourceLineInfo(semCtx, symbol.name())) {
+          const std::string intentSpec =
+              getIntentSpecSpelling(line->lineText, isDefinitelyWritten);
 
-        if (hasSingleEntityAfterDoubleColon(line->lineText)) {
-          if (auto insertPos = utils::findDeclAttrInsertionPoint(
-                  line->lineText, line->lineBegin)) {
-            const std::string fixText = ", " + intentSpec;
-            Fortran::tidy::FixItHint fix =
-                Fortran::tidy::FixItHint::CreateInsertion(
-                    parser::CharBlock{*insertPos, *insertPos}, fixText);
-            this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
-                                      fix);
-          }
-        } else if (mixedMissingIntentDeclsWithFix_.insert(line->lineBegin)
-                       .second) {
-          const std::string indentFromSource =
-              utils::getLeadingWhitespaceFromSourceLine(semCtx, symbol.name());
-          if (auto replacement = buildMissingIntentReplacementForMixedDecl(
-                  *line, scope, indentFromSource, WasDefinitelyWrittenTo)) {
-            Fortran::tidy::FixItHint fix =
-                Fortran::tidy::FixItHint::CreateReplacement(
-                    parser::CharBlock{line->lineBegin, line->lineEnd},
-                    llvm::StringRef{*replacement});
-            this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
-                                      fix);
-          } else {
-            const std::string fixText =
-                buildMissingIntentInsertionForMixedDecl(
-                    *line, symbol.name().ToString(), intentSpec,
-                    indentFromSource)
-                    .value_or(
-                        "\n" + utils::getLeadingWhitespace(line->lineText) +
-                        intentSpec +
-                        utils::getDoubleColonSeparator(line->lineText) +
-                        symbol.name().ToString());
-            Fortran::tidy::FixItHint fix =
-                Fortran::tidy::FixItHint::CreateInsertion(
-                    parser::CharBlock{line->lineEnd, line->lineEnd}, fixText);
-            this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
-                                      fix);
+          if (hasSingleEntityAfterDoubleColon(line->lineText)) {
+            if (auto insertPos = utils::findDeclAttrInsertionPoint(
+                    line->lineText, line->lineBegin)) {
+              const std::string fixText = ", " + intentSpec;
+              Fortran::tidy::FixItHint fix =
+                  Fortran::tidy::FixItHint::CreateInsertion(
+                      parser::CharBlock{*insertPos, *insertPos}, fixText);
+              this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
+                                        fix);
+            }
+          } else if (mixedMissingIntentDeclsWithFix_.insert(line->lineBegin)
+                         .second) {
+            const std::string indentFromSource =
+                utils::getLeadingWhitespaceFromSourceLine(semCtx, symbol.name());
+            if (auto replacement = buildMissingIntentReplacementForMixedDecl(
+                    *line, scope, indentFromSource, WasDefinitelyWrittenTo)) {
+              Fortran::tidy::FixItHint fix =
+                  Fortran::tidy::FixItHint::CreateReplacement(
+                      parser::CharBlock{line->lineBegin, line->lineEnd},
+                      llvm::StringRef{*replacement});
+              this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
+                                        fix);
+            } else {
+              const std::string fixText =
+                  buildMissingIntentInsertionForMixedDecl(
+                      *line, symbol.name().ToString(), intentSpec,
+                      indentFromSource)
+                      .value_or(
+                          "\n" + utils::getLeadingWhitespace(line->lineText) +
+                          intentSpec +
+                          utils::getDoubleColonSeparator(line->lineText) +
+                          symbol.name().ToString());
+              Fortran::tidy::FixItHint fix =
+                  Fortran::tidy::FixItHint::CreateInsertion(
+                      parser::CharBlock{line->lineEnd, line->lineEnd}, fixText);
+              this->context()->addFixIt("bugprone-unused-intent", symbol.name(),
+                                        fix);
+            }
           }
         }
       }
