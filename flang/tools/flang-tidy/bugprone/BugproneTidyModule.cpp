@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ArithmeticGotoCheck.h"
+#include "ExpmOneCheck.h"
 #include "ArithmeticIfStmtCheck.h"
 #include "ContiguousArrayCheck.h"
 #include "FlangTidyModule.h"
@@ -32,6 +33,7 @@ public:
   void addCheckFactories(FlangTidyCheckFactories &CheckFactories) override {
     CheckFactories.registerCheck<ArithmeticGotoCheck>(
         "bugprone-arithmetic-goto");
+    CheckFactories.registerCheck<ExpmOneCheck>("bugprone-expm1");
     CheckFactories.registerCheck<ArithmeticIfStmtCheck>(
         "bugprone-arithmetic-if");
     CheckFactories.registerCheck<ContiguousArrayCheck>(

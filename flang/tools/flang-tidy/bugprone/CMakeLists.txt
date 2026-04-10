@@ -10,6 +10,7 @@ add_flang_library(flangTidyBugproneModule STATIC
   MissingActionCheck.cpp
   MissingDefaultCheck.cpp
   PointerTemporaryCheck.cpp
+  ExpmOneCheck.cpp
   PrecisionLossCheck.cpp
   ShortCircuitCheck.cpp
   SubprogramTrampolineCheck.cpp

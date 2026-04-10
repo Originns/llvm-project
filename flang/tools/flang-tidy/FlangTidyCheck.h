@@ -433,9 +433,11 @@ public:
   virtual void Enter(const parser::EntityDecl &) {}
   virtual void Enter(const parser::ExecutableConstruct &) {}
   virtual void Enter(const parser::Expr &) {}
+  virtual void Enter(const parser::Expr::Add &) {}
   virtual void Enter(const parser::Expr::AND &) {}
   virtual void Enter(const parser::Expr::OR &) {}
   virtual void Enter(const parser::Expr::Power &) {}
+  virtual void Enter(const parser::Expr::Subtract &) {}
   virtual void Enter(const parser::ForallConstruct &) {}
   virtual void Enter(const parser::ForallStmt &) {}
   virtual void Enter(const parser::FunctionSubprogram &) {}
