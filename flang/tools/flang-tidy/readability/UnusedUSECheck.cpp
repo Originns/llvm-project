@@ -7,6 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "UnusedUSECheck.h"
+#include "flang/Evaluate/expression.h"
+#include "flang/Evaluate/tools.h"
 #include "flang/Parser/parse-tree.h"
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
@@ -81,15 +83,29 @@ void UnusedUSECheck::Enter(const parser::UseStmt &stmt) {
 
   if (std::holds_alternative<std::list<parser::Only>>(stmt.u)) {
     const auto &onlyList = std::get<std::list<parser::Only>>(stmt.u);
+    // Pre-fetch the local scope once for the whole ONLY list.
+    const semantics::Scope &currentScope =
+        context()->getSemanticsContext().FindScope(stmtSource);
     for (const auto &only : onlyList) {
       if (const auto *name = std::get_if<parser::Name>(&only.u)) {
         if (!name->symbol) {
           fixInfo.hasUnsupportedItem = true;
           continue;
         }
-        importedSymbols_[name->symbol] = {name->source, name->source,
-                                          stmtSource};
-        fixInfo.items.push_back({name->symbol, name->source});
+        // Flang's resolver sets name->symbol to the *module's* symbol via
+        //   Resolve(name, AddUse(...).use)
+        // but in usage contexts name.symbol is the *local* scope symbol (with
+        // UseDetails pointing back to the module symbol).  Find the local
+        // symbol directly so importedSymbols_ and usedSymbols_ share the
+        // same key.
+        const semantics::Symbol *localSym =
+            currentScope.FindSymbol(name->source);
+        if (!localSym) {
+          fixInfo.hasUnsupportedItem = true;
+          continue;
+        }
+        importedSymbols_[localSym] = {name->source, name->source, stmtSource};
+        fixInfo.items.push_back({localSym, name->source});
       } else if (const auto *rename = std::get_if<parser::Rename>(&only.u)) {
         if (const auto *names =
                 std::get_if<parser::Rename::Names>(&rename->u)) {
@@ -144,19 +160,30 @@ void UnusedUSECheck::Enter(const parser::UseStmt &stmt) {
   useStmtFixes_.push_back(fixInfo);
 }
 
-void UnusedUSECheck::Enter(const parser::Name &name) {
-  if (activeUseStmtDepth_ > 0 || !name.symbol) {
+// Mark a symbol as used, tracing back through UseDetails to find which of the
+// directly-imported whole-module imports provides it.  This handles:
+//   - ordinary named references (via Enter(parser::Name))
+//   - operator overloads and other unnamed invocations (via Enter(parser::Expr)
+//     with evaluate::CollectSymbols)
+//   - transitively re-exported symbols, by inspecting the local symbol's
+//     UseDetails rather than always following GetUltimate()
+void UnusedUSECheck::checkSymbol(const semantics::Symbol &sym) {
+  // ONLY-list import: mark the specific symbol as used.
+  if (importedSymbols_.find(&sym) != importedSymbols_.end()) {
+    usedSymbols_.insert(&sym);
     return;
   }
 
-  const semantics::Symbol *symbol = name.symbol;
+  const semantics::Symbol &ultimate = sym.GetUltimate();
 
-  if (importedSymbols_.find(symbol) != importedSymbols_.end()) {
-    usedSymbols_.insert(symbol);
+  // The ultimate may itself live in an ONLY-list import (rare, but possible
+  // when CollectSymbols returns the ultimate rather than the local alias).
+  if (importedSymbols_.find(&ultimate) != importedSymbols_.end()) {
+    usedSymbols_.insert(&ultimate);
     return;
   }
 
-  const semantics::Symbol &ultimate = symbol->GetUltimate();
+  // Whole-module import: the ultimate symbol's owning module is directly used.
   const semantics::Symbol *ownerSymbol = ultimate.owner().symbol();
   if (ownerSymbol && ownerSymbol->has<semantics::ModuleDetails>() &&
       wholeModuleImports_.find(ownerSymbol) != wholeModuleImports_.end()) {
@@ -164,17 +191,24 @@ void UnusedUSECheck::Enter(const parser::Name &name) {
     return;
   }
 
+  // The ultimate has UseDetails (it was itself use-associated in the module
+  // that re-exported it).  Check its immediate source module.
   if (const auto *useDetails = ultimate.detailsIf<semantics::UseDetails>()) {
     const semantics::Symbol *moduleSymbol =
         useDetails->symbol().owner().symbol();
     if (moduleSymbol && moduleSymbol->has<semantics::ModuleDetails>() &&
         wholeModuleImports_.find(moduleSymbol) != wholeModuleImports_.end()) {
       usedModules_.insert(moduleSymbol);
+      return;
     }
   }
 
-  if (symbol != &ultimate) {
-    if (const auto *useDetails = symbol->detailsIf<semantics::UseDetails>()) {
+  // Transitive re-export: the local symbol (sym) is use-associated from an
+  // intermediate module (e.g. loct_math_oct_m) that re-exports from the
+  // ultimate source (e.g. math_oct_m).  sym's own UseDetails points at the
+  // intermediate module, which is the one the user directly imported.
+  if (&sym != &ultimate) {
+    if (const auto *useDetails = sym.detailsIf<semantics::UseDetails>()) {
       const semantics::Symbol *moduleSymbol =
           useDetails->symbol().owner().symbol();
       if (moduleSymbol && moduleSymbol->has<semantics::ModuleDetails>() &&
@@ -182,6 +216,30 @@ void UnusedUSECheck::Enter(const parser::Name &name) {
         usedModules_.insert(moduleSymbol);
       }
     }
+  }
+}
+
+void UnusedUSECheck::Enter(const parser::Name &name) {
+  if (activeUseStmtDepth_ > 0 || !name.symbol) {
+    return;
+  }
+  checkSymbol(*name.symbol);
+}
+
+void UnusedUSECheck::Enter(const parser::Expr &expr) {
+  if (activeUseStmtDepth_ > 0 || wholeModuleImports_.empty()) {
+    return;
+  }
+  // Retrieve the semantics-annotated (typed) expression.  This is populated
+  // after name resolution and contains resolved procedure references for
+  // operator overloads, which never appear as parser::Name nodes.
+  const auto *typedExpr{
+      semantics::GetExpr(context()->getSemanticsContext(), expr)};
+  if (!typedExpr) {
+    return;
+  }
+  for (const semantics::Symbol &sym : evaluate::CollectSymbols(*typedExpr)) {
+    checkSymbol(sym);
   }
 }
 

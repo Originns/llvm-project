@@ -24,6 +24,7 @@ public:
 
   void Enter(const parser::UseStmt &) override;
   void Enter(const parser::Name &) override;
+  void Enter(const parser::Expr &) override;
   void Leave(const parser::UseStmt &) override;
   void Leave(const parser::ProgramUnit &) override;
 
@@ -55,6 +56,7 @@ private:
   };
 
   std::optional<Fortran::tidy::FixItHint> buildFix(const UseStmtFixInfo &info);
+  void checkSymbol(const semantics::Symbol &sym);
 
   std::map<const semantics::Symbol *, ImportedSymbolInfo> importedSymbols_;
   std::set<const semantics::Symbol *> usedSymbols_;
