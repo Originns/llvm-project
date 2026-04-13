@@ -160,61 +160,43 @@ void UnusedUSECheck::Enter(const parser::UseStmt &stmt) {
   useStmtFixes_.push_back(fixInfo);
 }
 
-// Mark a symbol as used, tracing back through UseDetails to find which of the
-// directly-imported whole-module imports provides it.  This handles:
+// Mark a symbol as used by walking the UseDetails/HostAssocDetails chain one
+// step at a time.  At each level we check whether the *owner* of the current
+// symbol is a module the user directly imported.  This correctly handles:
 //   - ordinary named references (via Enter(parser::Name))
-//   - operator overloads and other unnamed invocations (via Enter(parser::Expr)
-//     with evaluate::CollectSymbols)
-//   - transitively re-exported symbols, by inspecting the local symbol's
-//     UseDetails rather than always following GetUltimate()
+//   - operator overloads without parse-tree names (via Enter(parser::Expr) +
+//     evaluate::CollectSymbols)
+//   - symbols accessed via host association from a containing module
+//   - intrinsic-module procedures (e.g. c_loc, ieee_is_nan) that are
+//     re-exported internally through __fortran_builtins — GetUltimate() would
+//     skip past the user-visible module, so we must stop at each intermediate
+//     step instead
 void UnusedUSECheck::checkSymbol(const semantics::Symbol &sym) {
-  // ONLY-list import: mark the specific symbol as used.
-  if (importedSymbols_.find(&sym) != importedSymbols_.end()) {
-    usedSymbols_.insert(&sym);
-    return;
-  }
-
-  const semantics::Symbol &ultimate = sym.GetUltimate();
-
-  // The ultimate may itself live in an ONLY-list import (rare, but possible
-  // when CollectSymbols returns the ultimate rather than the local alias).
-  if (importedSymbols_.find(&ultimate) != importedSymbols_.end()) {
-    usedSymbols_.insert(&ultimate);
-    return;
-  }
-
-  // Whole-module import: the ultimate symbol's owning module is directly used.
-  const semantics::Symbol *ownerSymbol = ultimate.owner().symbol();
-  if (ownerSymbol && ownerSymbol->has<semantics::ModuleDetails>() &&
-      wholeModuleImports_.find(ownerSymbol) != wholeModuleImports_.end()) {
-    usedModules_.insert(ownerSymbol);
-    return;
-  }
-
-  // The ultimate has UseDetails (it was itself use-associated in the module
-  // that re-exported it).  Check its immediate source module.
-  if (const auto *useDetails = ultimate.detailsIf<semantics::UseDetails>()) {
-    const semantics::Symbol *moduleSymbol =
-        useDetails->symbol().owner().symbol();
-    if (moduleSymbol && moduleSymbol->has<semantics::ModuleDetails>() &&
-        wholeModuleImports_.find(moduleSymbol) != wholeModuleImports_.end()) {
-      usedModules_.insert(moduleSymbol);
+  const semantics::Symbol *current = &sym;
+  while (current) {
+    // ONLY-list import: the local alias is the key.
+    if (importedSymbols_.find(current) != importedSymbols_.end()) {
+      usedSymbols_.insert(current);
       return;
     }
-  }
 
-  // Transitive re-export: the local symbol (sym) is use-associated from an
-  // intermediate module (e.g. loct_math_oct_m) that re-exports from the
-  // ultimate source (e.g. math_oct_m).  sym's own UseDetails points at the
-  // intermediate module, which is the one the user directly imported.
-  if (&sym != &ultimate) {
-    if (const auto *useDetails = sym.detailsIf<semantics::UseDetails>()) {
-      const semantics::Symbol *moduleSymbol =
-          useDetails->symbol().owner().symbol();
-      if (moduleSymbol && moduleSymbol->has<semantics::ModuleDetails>() &&
-          wholeModuleImports_.find(moduleSymbol) != wholeModuleImports_.end()) {
-        usedModules_.insert(moduleSymbol);
-      }
+    // Whole-module import: does the scope that owns *current* belong to a
+    // module the user directly imported?
+    const semantics::Symbol *ownerModule = current->owner().symbol();
+    if (ownerModule && ownerModule->has<semantics::ModuleDetails>() &&
+        wholeModuleImports_.find(ownerModule) != wholeModuleImports_.end()) {
+      usedModules_.insert(ownerModule);
+      return;
+    }
+
+    // Follow the use/host-association chain one level deeper.
+    if (const auto *ud = current->detailsIf<semantics::UseDetails>()) {
+      current = &ud->symbol();
+    } else if (const auto *hd =
+                   current->detailsIf<semantics::HostAssocDetails>()) {
+      current = &hd->symbol();
+    } else {
+      return; // bottom of chain with no match
     }
   }
 }
@@ -223,7 +205,22 @@ void UnusedUSECheck::Enter(const parser::Name &name) {
   if (activeUseStmtDepth_ > 0 || !name.symbol) {
     return;
   }
-  checkSymbol(*name.symbol);
+  // Flang's resolver sets name.symbol to GetUltimate() for procedure calls
+  // (e.g. c_loc → __builtin_c_loc in __fortran_builtins), discarding the
+  // intermediate use-association chain.  Look the name up in the current
+  // scope to recover the local/use-associated symbol that correctly traces
+  // back to the directly-imported module.
+  const semantics::Symbol *sym{name.symbol};
+  if (!importedSymbols_.empty() || !wholeModuleImports_.empty()) {
+    if (auto loc{context()->getSemanticsContext().location()}) {
+      const semantics::Scope &scope{
+          context()->getSemanticsContext().FindScope(*loc)};
+      if (const semantics::Symbol *localSym{scope.FindSymbol(name.source)}) {
+        sym = localSym;
+      }
+    }
+  }
+  checkSymbol(*sym);
 }
 
 void UnusedUSECheck::Enter(const parser::Expr &expr) {
