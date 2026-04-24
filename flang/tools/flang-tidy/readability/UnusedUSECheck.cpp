@@ -13,6 +13,7 @@
 #include "flang/Semantics/symbol.h"
 #include "flang/Semantics/tools.h"
 #include "utils/FixIt.h"
+#include "utils/SourceEditUtils.h"
 #include "llvm/ADT/StringRef.h"
 #include <optional>
 #include <string>
@@ -23,44 +24,6 @@ namespace Fortran::tidy::readability {
 
 using namespace parser::literals;
 
-namespace {
-
-static bool isSingleLine(parser::CharBlock source) {
-  return !llvm::StringRef{source.begin(), source.size()}.contains('\n');
-}
-
-static std::optional<parser::CharBlock>
-getEntireSourceLine(semantics::SemanticsContext &ctx,
-                    parser::CharBlock anchor) {
-  if (anchor.begin() == nullptr) {
-    return std::nullopt;
-  }
-
-  const auto &allCooked = ctx.allCookedSources();
-  const auto *cooked = allCooked.Find(anchor);
-  if (!cooked) {
-    return std::nullopt;
-  }
-
-  const parser::CharBlock source = cooked->AsCharBlock();
-  const char *lineBegin = anchor.begin();
-  const char *lineEnd = anchor.end();
-
-  while (lineBegin > source.begin() && lineBegin[-1] != '\n') {
-    --lineBegin;
-  }
-  while (lineEnd < source.end() && *lineEnd != '\n') {
-    ++lineEnd;
-  }
-  if (lineEnd < source.end() && *lineEnd == '\n') {
-    ++lineEnd;
-  }
-
-  return parser::CharBlock{lineBegin,
-                           static_cast<std::size_t>(lineEnd - lineBegin)};
-}
-
-} // namespace
 
 UnusedUSECheck::UnusedUSECheck(llvm::StringRef name, FlangTidyContext *context)
     : FlangTidyCheck(name, context) {}
@@ -248,24 +211,23 @@ void UnusedUSECheck::Leave(const parser::UseStmt &) {
 
 std::optional<Fortran::tidy::FixItHint>
 UnusedUSECheck::buildFix(const UseStmtFixInfo &info) {
-  if (!isSingleLine(info.stmtSource)) {
-    return std::nullopt;
-  }
-
-  auto lineRange =
-      getEntireSourceLine(context()->getSemanticsContext(), info.stmtSource);
+  // All of our edits require the statement to occupy exactly one line.
+  auto lineRange{utils::removeStatementLine(
+      context()->getSemanticsContext(), info.stmtSource)};
   if (!lineRange) {
     return std::nullopt;
   }
 
+  // Whole-module import with no ONLY list — just delete the line.
   if (info.isWholeModuleImport) {
-    return Fortran::tidy::FixItHint::CreateRemoval(*lineRange);
+    return lineRange;
   }
 
   if (info.hasUnsupportedItem || info.items.empty()) {
     return std::nullopt;
   }
 
+  // Collect the subset of named imports that are still in use.
   std::vector<std::string> keptItems;
   for (const auto &item : info.items) {
     if (item.symbol && usedSymbols_.find(item.symbol) != usedSymbols_.end()) {
@@ -276,17 +238,16 @@ UnusedUSECheck::buildFix(const UseStmtFixInfo &info) {
     }
   }
 
+  // All ONLY items are unused — delete the whole line.
   if (keptItems.empty()) {
-    return Fortran::tidy::FixItHint::CreateRemoval(*lineRange);
+    return lineRange;
   }
 
+  // Some items are still needed: rebuild the statement keeping only those.
+  // Split off any trailing comment so we can reattach it unchanged.
   llvm::StringRef stmtText{info.stmtSource.begin(), info.stmtSource.size()};
-  std::size_t commentPos = stmtText.find('!');
-  llvm::StringRef declText = stmtText.substr(
-      0, commentPos == llvm::StringRef::npos ? stmtText.size() : commentPos);
-  llvm::StringRef commentText = commentPos == llvm::StringRef::npos
-                                    ? llvm::StringRef{}
-                                    : stmtText.substr(commentPos);
+  llvm::StringRef declText{utils::stripTrailingComment(stmtText)};
+  llvm::StringRef commentText{stmtText.substr(declText.size())};
 
   const auto &firstItem = info.items.front();
   if (firstItem.itemSource.begin() < info.stmtSource.begin() ||
@@ -294,14 +255,14 @@ UnusedUSECheck::buildFix(const UseStmtFixInfo &info) {
     return std::nullopt;
   }
 
+  // Everything before the first ONLY item (e.g. "use m, only: ") is kept.
   llvm::StringRef prefix{info.stmtSource.begin(),
                          static_cast<std::size_t>(firstItem.itemSource.begin() -
                                                   info.stmtSource.begin())};
-  std::string replacement = prefix.str();
-  for (std::size_t i = 0; i < keptItems.size(); ++i) {
-    if (i > 0) {
+  std::string replacement{prefix.str()};
+  for (std::size_t i{0}; i < keptItems.size(); ++i) {
+    if (i > 0)
       replacement += ", ";
-    }
     replacement += keptItems[i];
   }
   replacement += commentText.str();

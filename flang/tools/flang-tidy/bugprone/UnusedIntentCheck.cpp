@@ -26,19 +26,6 @@ namespace Fortran::tidy::bugprone {
 
 using namespace parser::literals;
 
-struct ParsedEntityDecl {
-  std::string declarator;
-  std::string baseName;
-};
-
-static std::string toLowerCopy(llvm::StringRef text) {
-  std::string lower = text.str();
-  for (char &ch : lower) {
-    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-  }
-  return lower;
-}
-
 static std::string getIntentSpecSpelling(const std::string &lineText,
                                          bool IsInOut) {
   const std::string keyword = utils::inferKeywordSpelling(lineText, "INTENT");
@@ -47,328 +34,169 @@ static std::string getIntentSpecSpelling(const std::string &lineText,
   return keyword + "(" + arg + ")";
 }
 
-static bool isSimpleIdentifier(llvm::StringRef token) {
-  if (token.empty()) {
-    return false;
-  }
-  const unsigned char first = static_cast<unsigned char>(token.front());
-  if (!(std::isalpha(first) || token.front() == '_')) {
-    return false;
-  }
-  for (char ch : token.drop_front()) {
-    const unsigned char uch = static_cast<unsigned char>(ch);
-    if (!(std::isalnum(uch) || ch == '_')) {
-      return false;
-    }
-  }
-  return true;
-}
-
-static bool hasTopLevelComma(llvm::StringRef text) {
-  int parenDepth{0};
-  for (char ch : text) {
-    if (ch == '(') {
-      ++parenDepth;
-    } else if (ch == ')') {
-      if (parenDepth > 0) {
-        --parenDepth;
-      }
-    } else if (ch == ',' && parenDepth == 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-static std::optional<std::vector<ParsedEntityDecl>>
-parseEntityDeclList(llvm::StringRef entityText) {
-  std::vector<ParsedEntityDecl> entities;
-  std::size_t pos{0};
-  while (pos < entityText.size()) {
-    std::size_t comma = llvm::StringRef::npos;
-    int parenDepth{0};
-    for (std::size_t i = pos; i < entityText.size(); ++i) {
-      const char ch = entityText[i];
-      if (ch == '(') {
-        ++parenDepth;
-      } else if (ch == ')') {
-        if (parenDepth > 0) {
-          --parenDepth;
-        }
-      } else if (ch == ',' && parenDepth == 0) {
-        comma = i;
-        break;
-      }
-    }
-
-    const llvm::StringRef rawToken = comma == llvm::StringRef::npos
-                                         ? entityText.substr(pos)
-                                         : entityText.substr(pos, comma - pos);
-    const llvm::StringRef token = rawToken.trim();
-    if (token.empty()) {
-      return std::nullopt;
-    }
-
-    std::size_t nameEnd{0};
-    if (!token.empty()) {
-      const unsigned char first = static_cast<unsigned char>(token.front());
-      if (!(std::isalpha(first) || token.front() == '_')) {
-        return std::nullopt;
-      }
-      nameEnd = 1;
-      while (nameEnd < token.size()) {
-        const char ch = token[nameEnd];
-        const unsigned char uch = static_cast<unsigned char>(ch);
-        if (!(std::isalnum(uch) || ch == '_')) {
-          break;
-        }
-        ++nameEnd;
-      }
-    }
-    const llvm::StringRef baseName = token.take_front(nameEnd);
-    if (!isSimpleIdentifier(baseName)) {
-      return std::nullopt;
-    }
-    entities.push_back(ParsedEntityDecl{token.str(), baseName.str()});
-
-    if (comma == llvm::StringRef::npos) {
-      break;
-    }
-    pos = comma + 1;
-  }
-  if (entities.empty()) {
-    return std::nullopt;
-  }
-  return entities;
-}
-
 static std::optional<parser::CharBlock>
 findIntentInoutRange(const utils::SourceLineInfo &line);
 
+// Split a mixed-intent declaration line by moving `targetName` onto a new
+// line with intent(in), leaving the other entities on the original line with
+// intent(inout) unchanged.
 static std::optional<std::string>
 buildMixedIntentReplacement(const utils::SourceLineInfo &line,
                             llvm::StringRef targetName,
                             llvm::StringRef explicitIndentation) {
-  const std::string lineText = line.lineText;
-  const std::size_t commentPos = lineText.find('!');
-  const std::string declPart = commentPos == std::string::npos
-                                   ? lineText
-                                   : lineText.substr(0, commentPos);
-  const std::string commentPart =
-      commentPos == std::string::npos ? "" : lineText.substr(commentPos);
-
-  const std::size_t doubleColonPos = declPart.find("::");
-  if (doubleColonPos == std::string::npos) {
+  auto parsed = utils::parseDeclarationLine(line.lineText);
+  if (!parsed || parsed->entities.size() < 2)
     return std::nullopt;
-  }
 
-  std::size_t rhsStart = doubleColonPos + 2;
-  while (rhsStart < declPart.size() &&
-         std::isspace(static_cast<unsigned char>(declPart[rhsStart]))) {
-    ++rhsStart;
-  }
-  const std::string prefix = declPart.substr(0, rhsStart);
   auto inoutRange = findIntentInoutRange(line);
-  if (!inoutRange) {
+  if (!inoutRange)
     return std::nullopt;
-  }
-  const std::ptrdiff_t inoutBeginOffset = inoutRange->begin() - line.lineBegin;
+
+  const std::ptrdiff_t inoutBeginOffset =
+      inoutRange->begin() - line.lineBegin;
   const std::ptrdiff_t inoutEndOffset = inoutRange->end() - line.lineBegin;
   if (inoutBeginOffset < 0 || inoutEndOffset < inoutBeginOffset ||
-      static_cast<std::size_t>(inoutEndOffset) > prefix.size()) {
+      static_cast<std::size_t>(inoutEndOffset) > parsed->prefix.size())
     return std::nullopt;
-  }
-  std::string prefixWithIntentIn = prefix;
+
+  // Build the prefix for the new line (intent(in) for the extracted entity).
+  std::string prefixWithIntentIn = parsed->prefix;
   prefixWithIntentIn.replace(
       static_cast<std::size_t>(inoutBeginOffset),
       static_cast<std::size_t>(inoutEndOffset - inoutBeginOffset),
       getIntentSpecSpelling(line.lineText, false));
 
-  const llvm::StringRef rhs = llvm::StringRef{declPart}.substr(rhsStart).trim();
-  auto parsedEntities = parseEntityDeclList(rhs);
-  if (!parsedEntities || parsedEntities->size() < 2) {
-    return std::nullopt;
-  }
-
-  const std::string targetLower = toLowerCopy(targetName);
+  const std::string targetLower = targetName.lower();
   std::vector<std::string> keepDecls;
   std::string targetDecl;
   bool foundTarget{false};
-  for (const ParsedEntityDecl &entity : *parsedEntities) {
-    if (toLowerCopy(entity.baseName) == targetLower) {
+  for (const utils::EntityDecl &entity : parsed->entities) {
+    if (llvm::StringRef(entity.baseName).lower() == targetLower) {
       foundTarget = true;
       targetDecl = entity.declarator;
     } else {
       keepDecls.push_back(entity.declarator);
     }
   }
-  if (!foundTarget || keepDecls.empty() || targetDecl.empty()) {
+  if (!foundTarget || keepDecls.empty() || targetDecl.empty())
     return std::nullopt;
-  }
 
-  std::string keepList;
+  std::string firstLine = parsed->prefix;
   for (std::size_t i{0}; i < keepDecls.size(); ++i) {
-    if (i > 0) {
-      keepList += ", ";
-    }
-    keepList += keepDecls[i];
+    if (i > 0)
+      firstLine += ", ";
+    firstLine += keepDecls[i];
   }
-
-  std::string firstLine = prefix + keepList;
-  if (!commentPart.empty()) {
+  if (!parsed->commentPart.empty()) {
     if (!firstLine.empty() &&
-        !std::isspace(static_cast<unsigned char>(firstLine.back()))) {
+        !std::isspace(static_cast<unsigned char>(firstLine.back())))
       firstLine += " ";
-    }
-    firstLine += commentPart;
+    firstLine += parsed->commentPart;
   }
 
   std::string indent = explicitIndentation.str();
-  if (indent.empty()) {
+  if (indent.empty())
     indent = utils::getLeadingWhitespace(firstLine);
-  }
-  const std::string secondLine =
-      indent + llvm::StringRef{prefixWithIntentIn}.ltrim(" \t").str() +
-      targetDecl;
-  return firstLine + "\n" + secondLine;
+
+  return firstLine + "\n" + indent +
+         llvm::StringRef{prefixWithIntentIn}.ltrim(" \t").str() + targetDecl;
 }
 
+// Build a new line to insert after the current one, containing only
+// `targetName` with the given intent attribute added.
 static std::optional<std::string>
 buildMissingIntentInsertionForMixedDecl(const utils::SourceLineInfo &line,
                                         llvm::StringRef targetName,
                                         llvm::StringRef intentSpec,
                                         llvm::StringRef explicitIndentation) {
-  const std::string lineText = line.lineText;
-  const std::size_t commentPos = lineText.find('!');
-  const std::string declPart = commentPos == std::string::npos
-                                   ? lineText
-                                   : lineText.substr(0, commentPos);
-
-  const std::size_t doubleColonPos = declPart.find("::");
-  if (doubleColonPos == std::string::npos) {
+  auto parsed = utils::parseDeclarationLine(line.lineText);
+  if (!parsed || parsed->entities.size() < 2)
     return std::nullopt;
-  }
 
-  std::size_t rhsStart = doubleColonPos + 2;
-  while (rhsStart < declPart.size() &&
-         std::isspace(static_cast<unsigned char>(declPart[rhsStart]))) {
-    ++rhsStart;
-  }
-  const llvm::StringRef rhs = llvm::StringRef{declPart}.substr(rhsStart).trim();
-  auto parsedEntities = parseEntityDeclList(rhs);
-  if (!parsedEntities || parsedEntities->size() < 2) {
-    return std::nullopt;
-  }
-
-  const std::string targetLower = toLowerCopy(targetName);
+  const std::string targetLower = targetName.lower();
   std::string targetDecl;
   bool foundTarget{false};
-  for (const ParsedEntityDecl &entity : *parsedEntities) {
-    if (toLowerCopy(entity.baseName) == targetLower) {
+  for (const utils::EntityDecl &entity : parsed->entities) {
+    if (llvm::StringRef(entity.baseName).lower() == targetLower) {
       foundTarget = true;
       targetDecl = entity.declarator;
       break;
     }
   }
-  if (!foundTarget || targetDecl.empty()) {
+  if (!foundTarget || targetDecl.empty())
     return std::nullopt;
-  }
 
   auto insertPos =
       utils::findDeclAttrInsertionPoint(line.lineText, line.lineBegin);
-  if (!insertPos) {
+  if (!insertPos)
     return std::nullopt;
-  }
+
   const std::ptrdiff_t insertOffset = *insertPos - line.lineBegin;
-  std::string prefixWithDeclAndAttrs = declPart.substr(0, rhsStart);
+  std::string prefixWithAttrs = parsed->prefix;
   if (insertOffset < 0 ||
-      static_cast<std::size_t>(insertOffset) > prefixWithDeclAndAttrs.size()) {
+      static_cast<std::size_t>(insertOffset) > prefixWithAttrs.size())
     return std::nullopt;
-  }
-  prefixWithDeclAndAttrs.insert(static_cast<std::size_t>(insertOffset),
-                                ", " + intentSpec.str());
+  prefixWithAttrs.insert(static_cast<std::size_t>(insertOffset),
+                         ", " + intentSpec.str());
 
   std::string indent = explicitIndentation.str();
-  if (indent.empty()) {
-    indent = utils::getLeadingWhitespace(prefixWithDeclAndAttrs);
-  }
+  if (indent.empty())
+    indent = utils::getLeadingWhitespace(prefixWithAttrs);
+
   return "\n" + indent +
-         llvm::StringRef{prefixWithDeclAndAttrs}.ltrim(" \t").str() +
-         targetDecl;
+         llvm::StringRef{prefixWithAttrs}.ltrim(" \t").str() + targetDecl;
 }
 
+// Look up a symbol by name, case-insensitively, within a single scope level.
 static const semantics::Symbol *
 findSymbolInScopeByNameCaseInsensitive(const semantics::Scope &scope,
                                        llvm::StringRef name) {
-  const std::string nameLower = toLowerCopy(name);
+  const std::string nameLower = name.lower();
   for (const auto &pair : scope) {
-    const semantics::Symbol &candidate = *pair.second;
-    if (toLowerCopy(candidate.name().ToString()) == nameLower) {
-      return &candidate;
-    }
+    if (pair.second->name().ToString() == nameLower)
+      return &*pair.second;
   }
   return nullptr;
 }
 
+// For each entity on a mixed declaration line that lacks an explicit intent,
+// split it onto its own line with the appropriate intent attribute inserted.
 static std::optional<std::string>
 buildMissingIntentReplacementForMixedDecl(
     const utils::SourceLineInfo &line, const semantics::Scope &scope,
     llvm::StringRef explicitIndentation,
     llvm::function_ref<bool(const semantics::Symbol &)> wasDefined) {
-  const std::string lineText = line.lineText;
-  const std::size_t commentPos = lineText.find('!');
-  const std::string declPart = commentPos == std::string::npos
-                                   ? lineText
-                                   : lineText.substr(0, commentPos);
-  const std::string commentPart =
-      commentPos == std::string::npos ? "" : lineText.substr(commentPos);
-
-  const std::size_t doubleColonPos = declPart.find("::");
-  if (doubleColonPos == std::string::npos) {
+  auto parsed = utils::parseDeclarationLine(line.lineText);
+  if (!parsed || parsed->entities.size() < 2)
     return std::nullopt;
-  }
-
-  std::size_t rhsStart = doubleColonPos + 2;
-  while (rhsStart < declPart.size() &&
-         std::isspace(static_cast<unsigned char>(declPart[rhsStart]))) {
-    ++rhsStart;
-  }
-  const std::string prefix = declPart.substr(0, rhsStart);
-  const llvm::StringRef rhs = llvm::StringRef{declPart}.substr(rhsStart).trim();
-  auto parsedEntities = parseEntityDeclList(rhs);
-  if (!parsedEntities || parsedEntities->size() < 2) {
-    return std::nullopt;
-  }
 
   auto insertPos =
       utils::findDeclAttrInsertionPoint(line.lineText, line.lineBegin);
-  if (!insertPos) {
+  if (!insertPos)
     return std::nullopt;
-  }
+
   const std::ptrdiff_t insertOffset = *insertPos - line.lineBegin;
   if (insertOffset < 0 ||
-      static_cast<std::size_t>(insertOffset) > prefix.size()) {
+      static_cast<std::size_t>(insertOffset) > parsed->prefix.size())
     return std::nullopt;
-  }
 
   std::string indent = explicitIndentation.str();
-  if (indent.empty()) {
+  if (indent.empty())
     indent = utils::getLeadingWhitespace(line.lineText);
-  }
-  const bool lineTextHasExplicitIndent =
+  const bool lineHasExplicitIndent =
       indent.empty() || llvm::StringRef{line.lineText}.starts_with(indent);
 
   std::vector<std::string> keepDecls;
   std::vector<std::string> splitLineBodies;
   bool changed{false};
-  for (const ParsedEntityDecl &entity : *parsedEntities) {
+
+  for (const utils::EntityDecl &entity : parsed->entities) {
     const semantics::Symbol *symbol =
         findSymbolInScopeByNameCaseInsensitive(scope, entity.baseName);
     if (!symbol) {
       keepDecls.push_back(entity.declarator);
       continue;
     }
-
     const auto *details = symbol->detailsIf<semantics::ObjectEntityDetails>();
     if (!details || !details->isDummy() ||
         symbol->attrs().HasAny(
@@ -382,70 +210,51 @@ buildMissingIntentReplacementForMixedDecl(
     changed = true;
     const std::string intentSpec =
         getIntentSpecSpelling(line.lineText, wasDefined(*symbol));
-    std::string prefixWithDeclAndAttrs = prefix;
-    prefixWithDeclAndAttrs.insert(static_cast<std::size_t>(insertOffset),
-                                  ", " + intentSpec);
+    std::string prefixWithAttrs = parsed->prefix;
+    prefixWithAttrs.insert(static_cast<std::size_t>(insertOffset),
+                           ", " + intentSpec);
     splitLineBodies.push_back(
-        llvm::StringRef{prefixWithDeclAndAttrs}.ltrim(" \t").str() +
+        llvm::StringRef{prefixWithAttrs}.ltrim(" \t").str() +
         entity.declarator);
   }
-  if (!changed || splitLineBodies.empty()) {
+  if (!changed || splitLineBodies.empty())
     return std::nullopt;
-  }
 
   std::string replacement;
   if (!keepDecls.empty()) {
-    std::string firstLine = prefix;
+    std::string firstLine = parsed->prefix;
     for (std::size_t i{0}; i < keepDecls.size(); ++i) {
-      if (i > 0) {
+      if (i > 0)
         firstLine += ", ";
-      }
       firstLine += keepDecls[i];
     }
-    if (!commentPart.empty()) {
+    if (!parsed->commentPart.empty()) {
       if (!firstLine.empty() &&
-          !std::isspace(static_cast<unsigned char>(firstLine.back()))) {
+          !std::isspace(static_cast<unsigned char>(firstLine.back())))
         firstLine += " ";
-      }
-      firstLine += commentPart;
+      firstLine += parsed->commentPart;
     }
     replacement = firstLine;
   }
 
   for (std::size_t i{0}; i < splitLineBodies.size(); ++i) {
-    if (!replacement.empty() || i > 0) {
+    if (!replacement.empty() || i > 0)
       replacement += "\n";
-    }
-    const bool skipIndentOnFirstSplitLine =
-        i == 0 && keepDecls.empty() && !lineTextHasExplicitIndent;
-    if (!skipIndentOnFirstSplitLine) {
+    const bool skipIndentOnFirst =
+        i == 0 && keepDecls.empty() && !lineHasExplicitIndent;
+    if (!skipIndentOnFirst)
       replacement += indent;
-    }
     replacement += splitLineBodies[i];
   }
-  if (keepDecls.empty() && !commentPart.empty()) {
-    replacement += " " + commentPart;
-  }
+  if (keepDecls.empty() && !parsed->commentPart.empty())
+    replacement += " " + parsed->commentPart;
 
   return replacement;
 }
 
-static bool hasSingleEntityAfterDoubleColon(const std::string &lineText) {
-  const std::size_t doubleColonPos = lineText.find("::");
-  if (doubleColonPos == std::string::npos) {
-    return false;
-  }
-  std::string suffix = lineText.substr(doubleColonPos + 2);
-  if (const std::size_t commentPos = suffix.find('!');
-      commentPos != std::string::npos) {
-    suffix.erase(commentPos);
-  }
-  return !hasTopLevelComma(suffix);
-}
-
 static std::optional<parser::CharBlock>
 findIntentInoutRange(const utils::SourceLineInfo &line) {
-  const std::string lowerLine = toLowerCopy(line.lineText);
+  const std::string lowerLine = llvm::StringRef{line.lineText}.lower();
   const std::size_t searchLimit = line.lineText.find("::");
   const std::size_t limit =
       searchLimit == std::string::npos ? line.lineText.size() : searchLimit;
@@ -798,7 +607,7 @@ void UnusedIntentCheck::EmitWarningsForScope(
       // Fix-it: safe to suggest intent(in) because !WasDefined means the
       // symbol is provably never written (not even through implicit ifaces).
       if (auto line = utils::getSourceLineInfo(semCtx, symbol.name())) {
-        if (!suppressFixIts && hasSingleEntityAfterDoubleColon(line->lineText)) {
+        if (!suppressFixIts && utils::hasSingleEntityAfterDoubleColon(line->lineText)) {
           if (auto inoutRange = findIntentInoutRange(*line)) {
             const std::string replacementText =
                 getIntentSpecSpelling(line->lineText, false);
@@ -863,7 +672,7 @@ void UnusedIntentCheck::EmitWarningsForScope(
           const std::string intentSpec =
               getIntentSpecSpelling(line->lineText, isDefinitelyWritten);
 
-          if (hasSingleEntityAfterDoubleColon(line->lineText)) {
+          if (utils::hasSingleEntityAfterDoubleColon(line->lineText)) {
             if (auto insertPos = utils::findDeclAttrInsertionPoint(
                     line->lineText, line->lineBegin)) {
               const std::string fixText = ", " + intentSpec;
