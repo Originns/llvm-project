@@ -1,0 +1,10 @@
+Checks: "readability-function-cognitive-complexity,readability-function-size"
+CheckOptions:
+    # Cognitive complexity threshold (default: 25)
+    readability-function-cognitive-complexity.Threshold: "25"
+    # Line count threshold for procedures (0 = disabled)
+    readability-function-size.LineThreshold: "25"
+    # Maximum nesting depth threshold (default: 5)
+    readability-function-size.NestingThreshold: "5"
+    # Maximum number of dummy arguments threshold (default: 5)
+    readability-function-size.ParameterThreshold: "5"
