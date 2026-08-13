@@ -25,7 +25,7 @@ static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
     return false;
 
   auto lhsCat = lhsType->category();
-  auto rhsCat = lhsType->category();
+  auto rhsCat = rhsType->category();
 
   // ignore derived types
   if (lhsCat == common::TypeCategory::Derived ||
@@ -49,22 +49,23 @@ static bool IsLossOfPrecision(const semantics::SomeExpr *lhs,
     return false;
   }
 
-  if ((lhsCat == common::TypeCategory::Real ||
-       lhsCat == common::TypeCategory::Integer) &&
-      rhsCat == common::TypeCategory::Complex) {
-    return true;
-  }
-
+  // Integer destination from a Complex/Real source: fractional part (and
+  // imaginary part for complex) is silently discarded — always a precision loss.
   if (lhsCat == common::TypeCategory::Integer &&
       (rhsCat == common::TypeCategory::Real ||
        rhsCat == common::TypeCategory::Complex)) {
     return true;
   }
 
+  // Real or Complex destination from an Integer source: an integer of kind k
+  // has k*8 significant bits, while a real of kind k has only ~7*k significant
+  // decimal digits.  Only warn when the destination kind is strictly smaller
+  // than the source kind — same-kind (e.g. REAL(4) ← INTEGER(4)) is the
+  // common idiomatic conversion and does not warn.
   if ((lhsCat == common::TypeCategory::Real ||
        lhsCat == common::TypeCategory::Complex) &&
-      rhsCat == common::TypeCategory::Integer && lhsKind <= rhsKind) {
-    return true;
+      rhsCat == common::TypeCategory::Integer) {
+    return lhsKind < rhsKind;
   }
 
   return false;
