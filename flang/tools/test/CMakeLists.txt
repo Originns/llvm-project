@@ -16,8 +16,23 @@ configure_lit_site_cfg(
 set(FLANG_TOOLS_TEST_DEPS
   # Individual tools we test.
   flang-tidy
-  module_files
 )
+
+# Intrinsic module files (iso_c_binding and friends, needed by tests such as
+# unused-use.f90) were produced by the 'module_files' target until LLVM 23
+# moved builtin .mod generation into the runtimes build.  They are now reached
+# through 'flang-rt-test-deps', created in flang/test/CMakeLists.txt -- which
+# flang/CMakeLists.txt adds *after* flang/tools, so the target usually does not
+# exist yet at this point.  Guard rather than hard-fail configuration; a full
+# build produces the module files before the tests are run either way.
+set(FLANG_MODULE_DEPS
+  flang-rt-test-deps flang-rt-mod
+)
+foreach(dep ${FLANG_MODULE_DEPS})
+  if(TARGET ${dep})
+    list(APPEND FLANG_TOOLS_TEST_DEPS ${dep})
+  endif()
+endforeach()
 
 # Add lit test dependencies.
 set(LLVM_UTILS_DEPS
