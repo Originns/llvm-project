@@ -10,6 +10,7 @@
 #define LLVM_FLANG_TOOLS_FLANG_TIDY_BUGPRONE_SHORTCIRCUITCHECK_H
 
 #include "FlangTidyCheck.h"
+#include "flang/Evaluate/expression.h"
 #include "flang/Parser/parse-tree.h"
 
 namespace Fortran::tidy::bugprone {
@@ -19,6 +20,12 @@ public:
   using FlangTidyCheck::FlangTidyCheck;
   virtual ~ShortCircuitCheck() = default;
   void Enter(const parser::IfConstruct &) override;
+  void Enter(const parser::IfStmt &) override;
+  void Enter(const parser::NonLabelDoStmt &) override;
+
+private:
+  void checkExpr(const evaluate::Expr<evaluate::SomeType> &expr,
+                 parser::CharBlock source);
 };
 
 } // namespace Fortran::tidy::bugprone

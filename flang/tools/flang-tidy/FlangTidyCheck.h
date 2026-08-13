@@ -430,6 +430,7 @@ public:
   virtual void Enter(const parser::DataStmt &) {}
   virtual void Enter(const parser::Designator &) {}
   virtual void Enter(const parser::DoConstruct &) {}
+  virtual void Enter(const parser::NonLabelDoStmt &) {}
   virtual void Enter(const parser::EntityDecl &) {}
   virtual void Enter(const parser::ExecutableConstruct &) {}
   virtual void Enter(const parser::Expr &) {}
