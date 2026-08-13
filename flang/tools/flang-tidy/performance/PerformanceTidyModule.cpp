@@ -9,6 +9,7 @@
 #include "FlangTidyModule.h"
 #include "FlangTidyModuleRegistry.h"
 #include "IntegerPowerCheck.h"
+#include "PointerAliasCheck.h"
 #include "PossibleTemporaryCheck.h"
 #include "PureProcedureCheck.h"
 
@@ -20,6 +21,7 @@ public:
   void addCheckFactories(FlangTidyCheckFactories &CheckFactories) override {
     CheckFactories.registerCheck<IntegerPowerCheck>(
         "performance-integer-power");
+    CheckFactories.registerCheck<PointerAliasCheck>("performance-pointer-alias");
     CheckFactories.registerCheck<PossibleTemporaryCheck>(
         "performance-possible-temporary");
     CheckFactories.registerCheck<PureProcedureCheck>(

@@ -38,6 +38,7 @@ Flang-Tidy Checks
    :doc:`modernize-avoid-data-constructs <modernize/avoid-data-constructs>`,
    :doc:`modernize-avoid-pause-stmt <modernize/avoid-pause-stmt>`,
    :doc:`openmp-accumulator-race <openmp/accumulator-race>`,
+   :doc:`performance-pointer-alias <performance/pointer-alias>`,
    :doc:`performance-possible-temporary <performance/possible-temporary>`,
    :doc:`performance-pure-procedure <performance/pure-procedure>`,
    :doc:`readability-function-cognitive-complexity <readability/function-cognitive-complexity>`,
