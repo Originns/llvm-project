@@ -12,6 +12,7 @@
 #include "ContiguousArrayCheck.h"
 #include "FlangTidyModule.h"
 #include "FlangTidyModuleRegistry.h"
+#include "FormatMismatchCheck.h"
 #include "ImplicitDeclCheck.h"
 #include "ImpliedSaveCheck.h"
 #include "LogicalPrecedenceCheck.h"
@@ -38,6 +39,8 @@ public:
         "bugprone-arithmetic-if");
     CheckFactories.registerCheck<ContiguousArrayCheck>(
         "bugprone-contiguous-array");
+    CheckFactories.registerCheck<FormatMismatchCheck>(
+        "bugprone-format-mismatch");
     CheckFactories.registerCheck<ImplicitDeclCheck>(
         "bugprone-implicit-declaration");
     CheckFactories.registerCheck<ImpliedSaveCheck>("bugprone-implied-save");

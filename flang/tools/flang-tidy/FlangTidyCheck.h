@@ -455,6 +455,10 @@ public:
   virtual void Enter(const parser::PauseStmt &) {}
   virtual void Enter(const parser::SelectRankConstruct &) {}
   virtual void Enter(const parser::SelectTypeConstruct &) {}
+  // A FORMAT statement is reached through its labelled statement wrapper, so
+  // that checks can associate the format with the label that references it.
+  virtual void
+  Enter(const parser::Statement<common::Indirection<parser::FormatStmt>> &) {}
   virtual void Enter(const parser::SubroutineSubprogram &) {}
   virtual void Enter(const parser::TypeDeclarationStmt &) {}
   virtual void Enter(const parser::UseStmt &) {}

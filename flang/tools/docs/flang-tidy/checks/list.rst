@@ -19,6 +19,7 @@ Flang-Tidy Checks
    :doc:`bugprone-arithmetic-goto <bugprone/arithmetic-goto>`,
    :doc:`bugprone-arithmetic-if <bugprone/arithmetic-if>`,
    :doc:`bugprone-contiguous-array <bugprone/contiguous-array>`,
+   :doc:`bugprone-format-mismatch <bugprone/format-mismatch>`,
    :doc:`bugprone-implicit-declaration <bugprone/implicit-declaration>`,
    :doc:`bugprone-implied-save <bugprone/implied-save>`,
    :doc:`bugprone-logical-precedence <bugprone/logical-precedence>`,
